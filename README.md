@@ -1,3 +1,13 @@
+# SANJEEVANI — Voice-First AI Health Companion
+
+## Current implementation
+
+The application is now a clean JavaScript stack: **Frontend: React + JavaScript + JSX + Vite + CSS**; **Backend: Node.js + Express + JavaScript**; **Database: MongoDB with in-memory fallback**; **Realtime: Socket.io**; **AI: Gemini with deterministic fallback**; **Speech: Groq Whisper with fallback mode**; **PWA: Service Worker + LocalStorage**.
+
+Run it with `npm install`, `npm --prefix client install`, `npm --prefix server install`, then `npm run dev`. Build with `npm run build`; production preview/start uses `npm start`.
+
+Sanjeevani maintains multilingual voice triage, a fallback tactical map and seeded facility data, simulated SOS dispatch events, and five offline first-aid procedures. It is never a substitute for professional diagnosis or emergency services; call 112 in India (or your local emergency number) for life-threatening symptoms.
+
 # ECHOAID
 
 > **Your Voice. Your Lifeline.**
@@ -150,3 +160,67 @@ This project is developed by our hackathon team.
 # ECHOAID
 
 ### **Your Voice. Your Lifeline.**
+# SANJEEVANI — Voice-First AI Health Companion
+
+Sanjeevani is a dark, command-centre style health companion for multilingual voice triage, emergency coordination, nearby facilities, and offline first-aid guides. It is designed to remain useful without API keys, a database, browser GPS, a microphone, or Socket.io.
+
+## Architecture
+
+`client/` is a Vite + React + TypeScript PWA. `server/` is an Express + TypeScript API with Socket.io. MongoDB, Gemini and Groq Whisper are optional enhancements; the server switches to realistic deterministic demo data and rule-based triage when they are absent.
+
+## Features
+
+- English, Hindi and Bengali voice or typed symptom triage
+- Conservative Gemini-powered triage with a complete safety fallback
+- Groq Whisper transcription with graceful fallback transcription
+- Tactical simulated emergency map with seeded Kolkata hospitals and blood banks
+- Confirmed SOS workflow, real-time demo dispatch events, and ambulance ETA
+- Five first-aid guides cached in local storage and by service worker
+- Responsive dark professional UI with accessibility labels and keyboard focus states
+
+## Install and run
+
+Requires Node.js 20+ and npm.
+
+```bash
+npm install
+npm --prefix client install
+npm --prefix server install
+npm run dev
+```
+
+Open `http://localhost:5173`. The API is on `http://localhost:5000`.
+
+For production builds, run `npm run build`, then `npm start`. You can also work in either package: `npm --prefix client run dev` or `npm --prefix server run dev`.
+
+## Environment
+
+Copy `server/.env.example` to `server/.env` and set optional values:
+
+```env
+PORT=5000
+MONGODB_URI=
+GEMINI_API_KEY=
+GROQ_API_KEY=
+CLIENT_URL=http://localhost:5173
+```
+
+No variable is required for demo mode. MongoDB failure enables in-memory seeded facilities; missing Gemini enables keyword safety triage; missing Groq enables a clearly labelled fallback transcription.
+
+## API and socket events
+
+- `POST /api/voice/transcribe`
+- `POST /api/triage`
+- `GET /api/facilities/nearby?latitude=&longitude=&radius=`
+- `POST /api/sos`, `GET /api/sos/:id`
+- `GET /api/health`
+
+Socket events are `sos:created`, `sos:update`, and `sos:acknowledged`. SOS dispatch is explicitly simulated in this app.
+
+## Offline/PWA
+
+The service worker caches the shell after the first successful load. First-aid content is persisted in local storage, so it remains available offline.
+
+## Safety
+
+Sanjeevani is not a medical diagnostic service and does not replace clinicians or emergency services. For life-threatening symptoms, call 112 (India) or your local emergency number immediately.
