@@ -1,5 +1,15 @@
 function StepByStepCard({ guide }) {
-  return <article className="panel procedure"><div className="panel-head"><span>{guide.urgency} · FIRST AID</span><small>Offline ready</small></div><h2>{guide.title}</h2><p className="warning">{guide.warning}</p><ol>{guide.steps.map((s) => <li key={s}>{s}</li>)}</ol><footer>For life-threatening symptoms or uncertainty, call 112 / local emergency services.</footer></article>;
+  const guideImages = {
+    "CPR (Adult & Infant)": "/images/cpr-adult-infant.jpeg",
+    "Severe Bleeding & Tourniquets": "/images/severe-bleeding-tourniquets.jpeg",
+    "Burns & Scalds": "/images/burns-scalds.jpeg",
+    "Choking (Conscious & Unconscious)": "/images/choking-conscious-unconscious.jpeg",
+    "Heatstroke & Dehydration": "/images/heatstroke-dehydration.jpeg",
+    "Fractures & Sprains": "/images/fractures-sprains.jpeg"
+  };
+  const guideImage = guideImages[guide.title];
+
+  return <article className="panel procedure"><div className="panel-head"><span>{guide.urgency} · FIRST AID</span><small>Offline ready</small></div><h2>{guide.title}</h2><p className="warning">{guide.warning}</p>{guideImage && <img className="cpr-guide-image" src={guideImage} alt={`Illustrated first aid instructions for ${guide.title}`} width="1024" height="1024" />}<ol>{guide.steps.map((s) => <li key={s}>{s}</li>)}</ol><footer>For life-threatening symptoms or uncertainty, call 112 / local emergency services.</footer></article>;
 }
 export {
   StepByStepCard
