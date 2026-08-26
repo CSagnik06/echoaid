@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { UploadCloud, FileText as FileIcon, ChevronRight, Download } from "lucide-react";
+import { UploadCloud, FileText as FileIcon, ChevronRight, Download, Loader2 } from "lucide-react";
 import { api } from "../../services/api";
 import jsPDF from "jspdf";
 
@@ -36,7 +36,7 @@ export function ReportSimplifier({ language }) {
       const simplifiedText = await api.simplifyReport(file, language);
       setResult(simplifiedText);
     } catch (err) {
-      setError("Failed to process the document. Please try again.");
+      setError(err.message || "Failed to process the document. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -97,9 +97,17 @@ export function ReportSimplifier({ language }) {
               className="button primary" 
               onClick={handleUpload} 
               disabled={loading}
-              style={{padding: '8px 16px', fontSize: '14px'}}
+              style={{padding: '8px 16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px'}}
             >
-              {loading ? "Analyzing..." : "Simplify Report"} <ChevronRight size={16} />
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+                  <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+                  Analyzing diagnostic report with Gemini AI...
+                </>
+              ) : (
+                <>Simplify Report <ChevronRight size={16} /></>
+              )}
             </button>
           </div>
         )}
@@ -107,12 +115,12 @@ export function ReportSimplifier({ language }) {
         {error && <div className="error" style={{color: '#f87171', background: 'rgba(248, 113, 113, 0.1)', padding: '10px', borderRadius: '8px'}}>{error}</div>}
 
         {result && (
-          <div className="result-panel panel" style={{padding: '20px', background: '#1f2937', borderRadius: '12px'}}>
+          <div className="result-panel panel" style={{padding: '20px', background: '#1f2937', borderRadius: '12px', color: '#F8FAFC'}}>
             <div className="panel-head" style={{marginBottom: '15px', borderBottom: '1px solid #374151', paddingBottom: '10px'}}>
               <span>SIMPLIFIED EXPLANATION</span>
               <small>AI-generated in {language}</small>
             </div>
-            <div className="markdown-content" style={{lineHeight: 1.6, whiteSpace: 'pre-wrap'}}>
+            <div className="markdown-content" style={{lineHeight: 1.65, fontSize: '0.95rem', whiteSpace: 'pre-line', color: '#E2E8F0'}}>
               {result}
             </div>
             <div style={{display: 'flex', gap: '10px', marginTop: '20px'}}>

@@ -1,70 +1,104 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import multer from 'multer';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-// Configure multer to store file in memory
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB max
+const candidateModels = [
+  "gemini-3.6-flash",
+  "gemini-3.6-flash-latest",
+  "gemini-3.0-flash",
+  "gemini-flash-latest"
+];
+
+export async function simplifyMedicalDocument(fileBuffer, mimeType = "image/png", language = "English") {
+  const apiKey = (process.env.GEMINI_API_KEY || "").trim();
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing in server environment");
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  const prompt = `You are an expert medical communicator.
+Analyze the provided diagnostic medical report/prescription image thoroughly.
+Translate and explain all findings clearly in ${language}.
+
+Format strictly with these markdown sections:
+📌 Key Findings & Summary
+⚠️ Values & Observations to Note (Highlight abnormal, elevated, or low parameters with reference ranges)
+💡 Plain Language Explanation
+🩺 Suggested Questions for Your Doctor
+
+End with a standard clinical disclaimer.`;
+
+  const base64Data = fileBuffer.toString("base64");
+  const imagePart = {
+    inlineData: {
+      data: base64Data,
+      mimeType: mimeType || "image/png"
+    }
+  };
+
+  let lastError = null;
+
+  // Attempt 1: Official SDK model cascade
+  for (const modelName of candidateModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent([prompt, imagePart]);
+      if (result && result.response) {
+        console.log(`[Gemini Engine] Generated report analysis using: ${modelName}`);
+        return result.response.text();
+      }
+    } catch (err) {
+      console.warn(`[Gemini Engine] Model ${modelName} failed (${err.message}), trying next candidate...`);
+      lastError = err;
+    }
+  }
+
+  // Attempt 2: Direct REST fallback to gemini-3.6-flash
+  for (const modelName of candidateModels) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType || "image/png", data: base64Data } }
+            ]
+          }]
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        console.log(`[Gemini REST] Fallback succeeded with: ${modelName}`);
+        return data.candidates[0].content.parts[0].text;
+      }
+    } catch (restErr) {
+      console.warn(`[Gemini REST] Fallback ${modelName} failed:`, restErr.message);
+    }
+  }
+
+  throw new Error(lastError?.message || "Failed to generate report with available Gemini models.");
+}
 
 router.post('/', upload.single('document'), async (req, res) => {
   try {
-    const file = req.file;
-    const language = req.body.language || 'English';
-
-    if (!file) {
-      return res.status(400).json({ success: false, message: 'No document provided' });
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: "No document uploaded" });
     }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("Gemini API key is not configured.");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-    
-    // Determine mime type
-    const mimeType = file.mimetype;
-    
-    // Process with Gemini Multimodal
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              inlineData: {
-                data: file.buffer.toString("base64"),
-                mimeType: mimeType
-              }
-            },
-            {
-              text: `You are an expert medical AI assistant. Analyze this medical document (report, prescription, or scan). 
-1. Extract the key findings, diagnoses, and any abnormal values (e.g. elevated WBC, low hemoglobin).
-2. Translate complex clinical jargon into plain, easy-to-understand language.
-3. Explain what any abnormal markers mean in practical terms.
-4. Output your response entirely in ${language}.
-Format your response using Markdown (bullet points, bold text for emphasis). Keep it compassionate and clear.`
-            }
-          ]
-        }
-      ]
-    });
-
-    const simplifiedText = response.text || "Could not generate an explanation.";
-
-    res.json({
-      success: true,
-      data: { simplifiedText }
-    });
+    const text = await simplifyMedicalDocument(req.file.buffer, req.file.mimetype, req.body.language);
+    return res.json({ success: true, data: { simplifiedText: text } });
   } catch (error) {
-    console.error('OCR Error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to process document', 
-      error: error.message 
-    });
+    console.error("Report Processing Error Details:", error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 

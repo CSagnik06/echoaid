@@ -1,7 +1,7 @@
 import axios from "axios";
 import { FIRST_AID } from "./offlineStorage";
 
-const client = axios.create({ baseURL: import.meta.env.VITE_API_URL || "", timeout: 9e3 });
+const client = axios.create({ baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000", timeout: 60000 });
 
 // Dynamic fallback helper: generates realistic local fallbacks around the user's actual GPS location if Overpass fails
 const getDynamicFallbackFacilities = (lat = 22.5726, lng = 88.3639) => {
@@ -64,29 +64,22 @@ const api = {
     const query = `[out:json][timeout:5];(node["amenity"~"hospital|clinic|pharmacy"](around:8000,${lat},${lng});node["healthcare"](around:8000,${lat},${lng}););out body 30;`;
 
     let overpassResults = [];
-    const endpoints = [
-      "https://overpass-api.de/api/interpreter",
-      "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
-    ];
     
-    for (const endpoint of endpoints) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s timeout
 
-        const res = await axios.post(endpoint, `data=${encodeURIComponent(query)}`, {
-          signal: controller.signal,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" }
-        });
-        clearTimeout(timeoutId);
+      const res = await axios.post("https://overpass-api.de/api/interpreter", `data=${encodeURIComponent(query)}`, {
+        signal: controller.signal,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" }
+      });
+      clearTimeout(timeoutId);
 
-        if (res.status === 200 && res.data?.elements && res.data.elements.length > 0) {
-            overpassResults = res.data.elements;
-            break;
-        }
-      } catch (e) {
-        // Continue to next endpoint if this one fails (e.g. 502 Bad Gateway)
+      if (res.status === 200 && res.data?.elements && res.data.elements.length > 0) {
+          overpassResults = res.data.elements;
       }
+    } catch {
+      // Quietly swallow the error and fallback to local generation
     }
 
     const seenNames = new Set();
@@ -165,12 +158,11 @@ const api = {
     f.append("document", file);
     f.append("language", language);
     return client
-      .post("/api/simplify-report", f)
-      .then((r) => r.data.data.simplifiedText)
-      .catch(
-        () =>
-          "This is a local fallback explanation. The actual backend could not be reached, but ideally this would contain an easy-to-understand explanation of your medical report with abnormal values highlighted."
-      );
+      .post("/api/simplify-report", f, { headers: { "Content-Type": "multipart/form-data" }, timeout: 60000 })
+      .then((r) => r.data?.data?.simplifiedText || r.data?.simplifiedText)
+      .catch((e) => {
+        throw new Error(e.response?.data?.error || e.response?.data?.message || e.message || "Failed to analyze document.");
+      });
   },
 
   transcribe: (audio, language) => {

@@ -1,6 +1,13 @@
 import { Activity, HeartPulse, Menu, ShieldAlert, X } from "lucide-react";
 import { useState } from "react";
-const items = [["Dashboard", "Dashboard"], ["Voice Check", "Voice Triage"], ["Facilities", "Facilities"], ["Blood Bank", "Blood Bank"], ["First Aid", "First Aid"]];
+const items = [
+  ["Dashboard", "Dashboard"], 
+  ["Voice Check", "Voice Triage"], 
+  ["Facilities", "Facilities"], 
+  ["Blood Bank", "Blood Bank"], 
+  ["First Aid", "First Aid"],
+  ["Report Reader", "Medical Reports"]
+];
 export function Navbar({ activeView, onNavigate, online }) {
   const [open, setOpen] = useState(false);
   const navigate = (view) => { onNavigate(view); setOpen(false); };
