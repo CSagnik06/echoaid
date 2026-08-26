@@ -13,6 +13,7 @@ L.Icon.Default.mergeOptions({
 
 import App from "./App";
 import "./index.css";
+import "./cprImage.css";
 import "./healthTracker.css";
 import "./medicineSafety.css";
 import "./womensHealth.css";
