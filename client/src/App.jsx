@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { BookOpen, ChevronRight, HeartPulse, Map, MapPin, Mic, Play, ShieldAlert, Square, Stethoscope, FileText, Droplet } from "lucide-react";
+import { BookOpen, CalendarHeart, ChevronRight, HeartPulse, Map, MapPin, Mic, Pill, Play, ShieldAlert, Square, Stethoscope, FileText, Droplet } from "lucide-react";
 import { Navbar } from "./components/common/Navbar";
+import { AccessibilitySettings } from "./components/common/AccessibilitySettings";
 import { LanguageSelector } from "./components/voice/LanguageSelector";
 import { VoiceWaveform } from "./components/voice/VoiceWaveform";
 import { TriageCard } from "./components/triage/TriageCard";
@@ -12,6 +13,10 @@ import { EmergencyTracker } from "./components/emergency/EmergencyTracker";
 import { FirstAidList } from "./components/firstaid/FirstAidList";
 import { StepByStepCard } from "./components/firstaid/StepByStepCard";
 import { ReportSimplifier } from "./components/reports/ReportSimplifier";
+import { HealthTracker } from "./components/health/HealthTracker";
+import { MedicineSafety } from "./components/medicines/MedicineSafety";
+import { MedicineReminderWatcher } from "./components/medicines/MedicineReminderWatcher";
+import { WomensHealth } from "./components/womensHealth/WomensHealth";
 import { api } from "./services/api";
 import { cacheFirstAid, getFirstAid } from "./services/offlineStorage";
 import { useGeolocation } from "./hooks/useGeolocation";
@@ -25,6 +30,9 @@ const features = [
   ["Emergency SOS", "Request urgent support with your location.", ShieldAlert, "SOS Response", "red"],
   ["Blood Bank", "Live blood inventory and availability.", Droplet, "Blood Bank", "red"],
   ["Report Simplifier", "Understand complex medical jargon with AI.", FileText, "Medical Reports", "purple"],
+  ["Health Tracker", "Track your health and recovery progress over time.", HeartPulse, "Health Tracker", "green"],
+  ["Medicine Safety", "Understand medicine uses, side effects and important safety information.", Pill, "Medicine Safety", "amber"],
+  ["Women's Health", "Track your cycle, symptoms and women's health over time.", CalendarHeart, "Women's Health", "blue"],
   ["Offline First Aid", "Essential emergency guides, ready when offline.", BookOpen, "First Aid", "amber"]
 ];
 
@@ -83,6 +91,8 @@ export default function App() {
   };
 
   return <div className="app-shell">
+    <MedicineReminderWatcher />
+    <AccessibilitySettings />
     <Navbar activeView={view} onNavigate={handleNavigate} online={online && socket} />
     <main className="page-shell">
       {(view === "Dashboard" || view === "Voice Triage") && <>
@@ -106,6 +116,9 @@ export default function App() {
       {view === "SOS Response" && <section className="sos-view"><header className="page-heading centered"><span className="section-kicker emergency-text">EMERGENCY ASSISTANCE</span><h1>Help is one step away.</h1><p>Share your location with our simulated response system. In a real emergency, call <b>112</b> immediately.</p></header><div className="sos-layout"><section className="sos-intro"><span className="sos-icon"><ShieldAlert size={30} /></span><h2>Emergency SOS</h2><p>Request immediate assistance and share your current location with the response team.</p><SosButton geo={geo} onConfirm={sos} /></section><EmergencyTracker alert={alert} /></div></section>}
       {view === "Blood Bank" && <BloodStockCounter facilities={facilities} />}
       {view === "Medical Reports" && <ReportSimplifier language={language} />}
+      {view === "Health Tracker" && <HealthTracker onNavigate={handleNavigate} />}
+      {view === "Medicine Safety" && <MedicineSafety onNavigate={handleNavigate} />}
+      {view === "Women's Health" && <WomensHealth onNavigate={handleNavigate} />}
       {view === "First Aid" && <section className="firstaid-view"><header className="page-heading"><span className="section-kicker">OFFLINE KNOWLEDGE CENTER</span><h1>Emergency first-aid guides</h1><p>Quick, step-by-step guidance for common emergency situations — available even offline.</p></header><div className="firstaid-grid"><FirstAidList guides={getFirstAid()} onSelect={setGuide} /><StepByStepCard guide={guide} /></div></section>}
       {view === "System Status" && <section className="system-card"><span className="section-kicker">SYSTEM STATUS</span><h1>Everything is ready when you are.</h1><div className="system-grid"><p><i /> API fallback-safe</p><p><i /> GPS {geo.error ? "demo active" : "available"}</p><p><i /> Voice recorder {window.MediaRecorder ? "available" : "unavailable"}</p><p><i /> Socket {socket ? "connected" : "local demo"}</p></div><p className="disclaimer">Demo mode keeps SANJEEVANI useful without a database, API key, GPS, microphone, or socket connection.</p></section>}
     </main>
