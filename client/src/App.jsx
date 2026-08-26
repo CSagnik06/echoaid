@@ -61,6 +61,7 @@ export default function App() {
   const [alert, setAlert] = useState();
   const [guide, setGuide] = useState(getFirstAid()[0]);
   const [text, setText] = useState("");
+  const [chatHistory, setChatHistory] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [filterType, setFilterType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -106,19 +107,36 @@ export default function App() {
     };
   }, []);
 
-  const doTriage = async (value) => {
+  const doConsultationStep = async (value) => {
     if (!value.trim()) return;
     setProcessing(true);
-    setText(value);
-    const result = await api.triage(value, language);
-    setTriage(result);
-    setProcessing(false);
+    setText(""); // clear the input text
+
+    const newHistory = [...chatHistory, { role: "user", parts: [{ text: value }] }];
+    setChatHistory(newHistory);
     setView("Voice Triage");
-    tts.speak(result.voiceResponse, language);
+
+    try {
+      const result = await api.voiceConsult(newHistory, language);
+      setTriage(result);
+      
+      const updatedHistory = [...newHistory, { role: "model", parts: [{ text: result.spokenResponse }] }];
+      setChatHistory(updatedHistory);
+      setProcessing(false);
+
+      tts.speak(result.spokenResponse, language, () => {
+        // Automatically continue listening if the consultation is still in progress
+        if (!result.isFinalVerdict) {
+          record(true);
+        }
+      });
+    } catch (err) {
+      setProcessing(false);
+    }
   };
 
-  const record = async () => {
-    if (!voice.recording) {
+  const record = async (forceStart = false) => {
+    if (forceStart || !voice.recording) {
       const langMap = {
         English: "en-IN",
         Hindi: "hi-IN",
@@ -137,12 +155,12 @@ export default function App() {
       if (result instanceof Blob) {
         try {
           const transcribed = await api.transcribe(result, language);
-          await doTriage(transcribed.text);
+          await doConsultationStep(transcribed.text);
         } catch {
           setProcessing(false);
         }
       } else {
-        await doTriage(result);
+        await doConsultationStep(result);
       }
     } else {
       setProcessing(false);
@@ -170,6 +188,7 @@ export default function App() {
     if (newView === "Dashboard") {
       setTriage(undefined);
       setText("");
+      setChatHistory([]);
     }
   };
 
@@ -220,10 +239,10 @@ export default function App() {
                     id="symptoms"
                     value={text}
                     onChange={(event) => setText(event.target.value)}
-                    onKeyDown={(event) => event.key === "Enter" && doTriage(text)}
+                    onKeyDown={(event) => event.key === "Enter" && doConsultationStep(text)}
                     placeholder="For example, I feel dizzy and have chest discomfort…"
                   />
-                  <button className="button healthcare" onClick={() => doTriage(text)} disabled={processing}>
+                  <button className="button healthcare" onClick={() => doConsultationStep(text)} disabled={processing}>
                     <Play size={15} />
                     Analyze
                   </button>

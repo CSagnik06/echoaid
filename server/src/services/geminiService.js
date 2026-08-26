@@ -1,50 +1,103 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { env } from '../config/env.js';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import dotenv from "dotenv";
+dotenv.config();
 
-function fallback(text, language) { 
-    const t = text.toLowerCase();
-    const red = /chest pain|breath|unconscious|stroke|severe bleeding|suicide|seizure|सीने|শ্বাস|বুকে/.test(t);
-    const yellow = /fever|dizz|vomit|pain|headache|burn|headache|জ্বর|ব্যথা|बुखार|दर्द/.test(t);
-    const u = red ? 'RED' : yellow ? 'YELLOW' : 'GREEN';
-    const lang = (language === 'Hindi' || language === 'Bengali' ? language : 'English'); 
-    return { 
-        alertLevel: u, 
-        urgencyTitle: red ? 'EMERGENCY ALERT' : yellow ? 'MODERATE ATTENTION' : 'MILD / SELF-CARE',
-        detectedLanguage: lang, 
-        summary: red ? 'Symptoms may need urgent emergency assessment.' : yellow ? 'Your symptoms should be assessed by a clinician soon.' : 'This sounds low risk based on the information provided.', 
-        immediateActions: red ? ['Call 112 or local emergency services now.', 'Do not drive yourself; ask someone to stay with you.', 'If symptoms worsen, seek emergency care immediately.'] : yellow ? ['Rest in a safe place and stay hydrated if appropriate.', 'Arrange a same-day clinical assessment.', 'Seek emergency care for worsening symptoms.'] : ['Monitor symptoms and rest.', 'Book routine medical advice if symptoms persist.', 'Seek urgent help if new severe symptoms appear.'], 
-        recommendedCare: red ? 'Immediate Hospital Emergency' : yellow ? 'Local Clinic / General Physician' : 'Home Care', 
-        voiceResponse: red ? 'This could be serious. Please call emergency services immediately.' : yellow ? 'Please arrange medical care today, especially if symptoms worsen.' : 'Please monitor your symptoms. This is not a medical diagnosis.', 
-        source: 'fallback' 
-    }; 
-}
+const apiKey = (process.env.GEMINI_API_KEY || "").trim();
+const genAI = new GoogleGenerativeAI(apiKey);
 
-export async function triage(text, language) { 
-    if (env.geminiKey) {
-        try {
-            const ai = new GoogleGenerativeAI(env.geminiKey);
-            const prompt = `Return ONLY a raw JSON object (no markdown, no backticks). Structure:
+const candidateModels = [
+  "gemini-3.6-flash",
+  "gemini-3.6-flash-latest",
+  "gemini-3.0-flash"
+];
+
+export async function triageSymptoms(symptoms, language = "English") {
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing in server environment");
+  }
+
+  const prompt = `You are SANJEEVANI AI, an emergency healthcare assistant.
+Analyze these specific patient symptoms: "${symptoms}" in language: ${language}.
+
+Evaluate the exact severity and urgency:
+- "RED": Severe trauma, heart issue, severe breathing difficulty, critical emergency.
+- "YELLOW": Moderate symptoms, infection, persistent pain requiring clinic visit in 24-48h.
+- "GREEN": Mild, temporary, self-care / rest / hydration.
+
+Respond ONLY with a valid JSON object matching this schema without code blocks:
 {
-  "alertLevel": "GREEN" | "YELLOW" | "RED",
-  "urgencyTitle": "MILD / SELF-CARE" | "MODERATE ATTENTION" | "EMERGENCY ALERT",
-  "detectedLanguage": "${language}",
-  "summary": "Clear, empathetic clinical analysis",
-  "immediateActions": ["step 1", "step 2"],
-  "recommendedCare": "Home Care" | "Local Clinic / General Physician" | "Immediate Hospital Emergency",
-  "voiceResponse": "Natural, conversational spoken summary to be read out aloud by TTS"
+  "alertLevel": "RED" | "YELLOW" | "GREEN",
+  "summary": "1-2 sentence specific clinical summary for: ${symptoms}",
+  "immediateActions": ["Action 1 for these exact symptoms", "Action 2"],
+  "recommendedCare": "Specific medical advice for these symptoms",
+  "voiceResponse": "Natural spoken 1-2 sentence response explaining condition in ${language}."
+}`;
+
+  const modelCandidates = ["gemini-3.6-flash", "gemini-3.6-flash-latest", "gemini-2.5-flash"];
+
+  for (const modelName of modelCandidates) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const cleanJson = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+      return JSON.parse(cleanJson);
+    } catch (e) {
+      console.warn(`Model ${modelName} triage failed:`, e.message);
+    }
+  }
+
+  // REST API Direct Fallback
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    }
+  );
+  const data = await res.json();
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (rawText) {
+    const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanJson);
+  }
+
+  throw new Error("Gemini API call failed across all endpoints");
 }
-Medical safety:
-- GREEN Alert: Mild symptoms, home treatment & hydration guide.
-- YELLOW Alert: Moderate symptoms, schedule clinic/doctor visit.
-- RED Alert: Severe emergencies (chest pain, stroke, heavy blood loss) with direct emergency alert.
-Ensure output is in the specified language: ${language}. Text: ${text}`;
-            const r = await ai.getGenerativeModel({ model: 'gemini-2.5-flash' }).generateContent(prompt);
-            let rawText = r.response.text();
-            rawText = rawText.replace(/```json|```/g, '').trim();
-            const p = JSON.parse(rawText);
-            return { ...p, source: 'gemini' };
-        }
-        catch (e) { console.error("Gemini Error:", e) }
-    } 
-    return fallback(text, language); 
+
+export async function conductVoiceConsultation(history = [], language = "English") {
+  if (!apiKey) throw new Error("GEMINI_API_KEY missing");
+
+  const prompt = `You are SANJEEVANI AI Doctor conducting a live spoken consultation in ${language}.
+Analyze the dialogue history:
+${JSON.stringify(history, null, 2)}
+
+Protocol:
+1. If the patient shares vague or incomplete symptoms, ask 1 concise follow-up question (e.g. pain severity 1-10, swelling, inability to bear weight, duration). Keep isFinalVerdict: false.
+2. If red flags or severe trauma appear, set isFinalVerdict: true and alertLevel: "RED".
+3. Once clear or after 2-3 turns, set isFinalVerdict: true with alertLevel ("RED", "YELLOW", or "GREEN").
+
+Return strictly JSON:
+{
+  "isFinalVerdict": boolean,
+  "spokenResponse": "Short natural 1-2 sentences to read aloud to patient",
+  "alertLevel": "RED" | "YELLOW" | "GREEN" | "IN_PROGRESS",
+  "summary": "Clinical summary",
+  "recommendedAction": "Next action",
+  "immediateActions": ["Step 1", "Step 2"]
+}`;
+
+  for (const modelName of candidateModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const cleanJson = result.response.text().replace(/```json/gi, "").replace(/```/g, "").trim();
+      return JSON.parse(cleanJson);
+    } catch (e) {
+      console.warn(`Consultation model ${modelName} failed:`, e.message);
+    }
+  }
+
+  throw new Error("Failed to contact Gemini consultation model");
 }

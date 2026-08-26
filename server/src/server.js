@@ -20,8 +20,24 @@ const app = express(), http = createServer(app), io = new Server(http, {
   },
   transports: ["polling", "websocket"]
 });
-app.use(cors({ origin: env.clientUrl }));
-app.use(express.json({ limit: '1mb' }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin) || /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Dev mode permissive
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ extended: true, limit: "25mb" }));
+
+// Explicit OPTIONS preflight handling
+app.options("*", cors());
 app.get('/api/health', (_q, r) => r.json({ success: true, data: { status: 'operational', database: databaseMode, demoMode: databaseMode === 'memory' } }));
 app.use('/api/triage', triageRoutes);
 app.use('/api/voice', voiceRoutes);

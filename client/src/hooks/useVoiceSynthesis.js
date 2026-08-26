@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 
 export function useVoiceSynthesis() {
-  const speak = useCallback((text, language = "en-IN") => {
+  const speak = useCallback((text, language = "en-IN", onEnd = null) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     
@@ -20,6 +20,9 @@ export function useVoiceSynthesis() {
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = bcp47;
+    if (onEnd) {
+      utterance.onend = onEnd;
+    }
     window.speechSynthesis.speak(utterance);
   }, []);
   

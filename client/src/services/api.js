@@ -175,20 +175,11 @@ const api = {
     });
   },
 
+  voiceConsult: (history, language) =>
+    client.post("/api/voice/consult", { history, language }).then(r => r.data.data),
+
   triage: (text, language) =>
-    unwrap(client.post("/api/triage", { text, language }), {
-      alertLevel: "YELLOW",
-      detectedLanguage: language,
-      summary: "Your symptoms should be assessed by a clinician soon.",
-      immediateAction: [
-        "Rest in a safe place.",
-        "Arrange a same-day clinical assessment.",
-        "Call 112 if symptoms become severe."
-      ],
-      suggestedFacility: "Clinic or hospital outpatient",
-      voiceResponse: "Please arrange medical care today. This is not a medical diagnosis.",
-      source: "local fallback"
-    }),
+    client.post("/api/triage", { text, language }).then(r => r.data.data),
 
   sos: (body) =>
     unwrap(client.post("/api/sos", body), {
