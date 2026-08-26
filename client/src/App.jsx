@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BookOpen, CalendarHeart, ChevronRight, HeartPulse, Map, MapPin, Mic, Pill, Play, ShieldAlert, Square, Stethoscope, FileText, Droplet } from "lucide-react";
+import { BookOpen, CalendarHeart, ChevronRight, HeartHandshake, HeartPulse, Map, MapPin, Mic, Pill, Play, ShieldAlert, Square, Stethoscope, FileText, Droplet } from "lucide-react";
 import { Navbar } from "./components/common/Navbar";
 import { AccessibilitySettings } from "./components/common/AccessibilitySettings";
 import { LanguageSelector } from "./components/voice/LanguageSelector";
@@ -17,6 +17,7 @@ import { HealthTracker } from "./components/health/HealthTracker";
 import { MedicineSafety } from "./components/medicines/MedicineSafety";
 import { MedicineReminderWatcher } from "./components/medicines/MedicineReminderWatcher";
 import { WomensHealth } from "./components/womensHealth/WomensHealth";
+import { CareCircle } from "./components/careCircle/CareCircle";
 import { api } from "./services/api";
 import { cacheFirstAid, getFirstAid } from "./services/offlineStorage";
 import { useGeolocation } from "./hooks/useGeolocation";
@@ -33,6 +34,7 @@ const features = [
   ["Health Tracker", "Track your health and recovery progress over time.", HeartPulse, "Health Tracker", "green"],
   ["Medicines", "Search medicines, understand their uses and manage your medicine reminders.", Pill, "Medicines", "amber"],
   ["Women's Health", "Track your cycle, symptoms and women's health over time.", CalendarHeart, "Women's Health", "blue"],
+  ["Care Circle", "Keep your family's important health information together.", HeartHandshake, "Care Circle", "green"],
   ["Offline First Aid", "Essential emergency guides, ready when offline.", BookOpen, "First Aid", "amber"]
 ];
 
@@ -119,6 +121,7 @@ export default function App() {
       {view === "Health Tracker" && <HealthTracker onNavigate={handleNavigate} />}
       {view === "Medicines" && <MedicineSafety onNavigate={handleNavigate} />}
       {view === "Women's Health" && <WomensHealth onNavigate={handleNavigate} />}
+      {view === "Care Circle" && <CareCircle />}
       {view === "First Aid" && <section className="firstaid-view"><header className="page-heading"><span className="section-kicker">OFFLINE KNOWLEDGE CENTER</span><h1>Emergency first-aid guides</h1><p>Quick, step-by-step guidance for common emergency situations — available even offline.</p></header><div className="firstaid-grid"><FirstAidList guides={getFirstAid()} onSelect={setGuide} /><StepByStepCard guide={guide} /></div></section>}
       {view === "System Status" && <section className="system-card"><span className="section-kicker">SYSTEM STATUS</span><h1>Everything is ready when you are.</h1><div className="system-grid"><p><i /> API fallback-safe</p><p><i /> GPS {geo.error ? "demo active" : "available"}</p><p><i /> Voice recorder {window.MediaRecorder ? "available" : "unavailable"}</p><p><i /> Socket {socket ? "connected" : "local demo"}</p></div><p className="disclaimer">Demo mode keeps SANJEEVANI useful without a database, API key, GPS, microphone, or socket connection.</p></section>}
     </main>

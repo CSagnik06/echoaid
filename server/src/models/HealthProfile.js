@@ -52,6 +52,7 @@ const medicineReminderSchema = new Schema({
 }, { _id: false });
 
 const historySchema = new Schema({
+  patientProfileId: { type: String, default: '', maxlength: 80, index: true },
   category: { type: String, enum: ['Condition', 'Surgery', 'Illness', 'Allergy', 'Medicine'], required: true },
   title: { type: String, required: true, maxlength: 160 },
   startDate: Date,
@@ -70,6 +71,15 @@ const historySchema = new Schema({
   prescribedBy: { type: String, default: '', maxlength: 160 },
   reminder: { type: medicineReminderSchema, default: undefined },
   associatedPlanId: String
+}, { timestamps: true });
+
+const careCircleMemberSchema = new Schema({
+  name: { type: String, required: true, maxlength: 100 },
+  relationship: { type: String, enum: ['Mother', 'Father', 'Grandmother', 'Grandfather', 'Sister', 'Brother', 'Spouse', 'Child', 'Other'], required: true },
+  age: { type: Number, min: 0, max: 130 },
+  bloodGroup: { type: String, enum: ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'], default: '' },
+  allergy: { type: String, default: '', maxlength: 300 },
+  emergencyContact: { type: String, default: '', maxlength: 40 }
 }, { timestamps: true });
 
 const cycleRecordSchema = new Schema({
@@ -132,6 +142,7 @@ const healthProfileSchema = new Schema({
   ownerKey: { type: String, required: true, unique: true, index: true },
   plans: [planSchema],
   history: [historySchema],
+  careCircle: [careCircleMemberSchema],
   womensHealth: { type: womenHealthSchema, default: () => ({}) }
 }, { timestamps: true });
 

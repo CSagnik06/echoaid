@@ -5,7 +5,14 @@ function StepByStepCard({ guide }) {
     "Burns & Scalds": "/images/burns-scalds.jpeg",
     "Choking (Conscious & Unconscious)": "/images/choking-conscious-unconscious.jpeg",
     "Heatstroke & Dehydration": "/images/heatstroke-dehydration.jpeg",
-    "Fractures & Sprains": "/images/fractures-sprains.jpeg"
+    "Fractures & Sprains": "/images/fractures-sprains.jpeg",
+    "Stroke (FAST Protocol)": "/images/stroke-fast-protocol.jpeg",
+    "Heart Attack & Chest Pain": "/images/heart-attack-chest-pain.jpeg",
+    "Poisoning & Toxic Ingestion": "/images/poisoning-toxic-ingestion.jpeg",
+    "Diabetic Shock (Hypoglycemia)": "/images/diabetic-shock-hypoglycemia.jpeg",
+    "Asthma Attack & Anaphylaxis": "/images/asthma-attack-anaphylaxis.jpeg",
+    "Snake & Insect Bites": "/images/snake-insect-bites.jpeg",
+    "Seizures / Convulsions": "/images/seizures-convulsions.jpeg"
   };
   const guideImage = guideImages[guide.title];
 
