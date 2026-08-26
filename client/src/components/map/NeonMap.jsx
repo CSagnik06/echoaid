@@ -59,7 +59,7 @@ export function NeonMap({ facilities = [], position, onSelect, selected }) {
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    if (!mapInstanceRef.current) {
+    if (!mapContainerRef.current._leaflet_id && !mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current, {
         center: defaultCenter,
         zoom: 13,
@@ -74,14 +74,28 @@ export function NeonMap({ facilities = [], position, onSelect, selected }) {
       routeLayerRef.current = L.layerGroup().addTo(map);
 
       mapInstanceRef.current = map;
-    }
 
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 200);
+
+      const resizeObserver = new ResizeObserver(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      });
+      resizeObserver.observe(mapContainerRef.current);
+
+      return () => {
+        resizeObserver.disconnect();
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      };
+    }
   }, []);
 
   // 2. Sync Center & Markers
@@ -151,8 +165,10 @@ export function NeonMap({ facilities = [], position, onSelect, selected }) {
     <div
       ref={mapContainerRef}
       style={{
-        height: "450px",
+        height: "480px",
         width: "100%",
+        minHeight: "480px",
+        display: "block",
         position: "relative",
         borderRadius: "15px",
         overflow: "hidden",

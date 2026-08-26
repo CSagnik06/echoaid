@@ -10,7 +10,14 @@ import facilityRoutes from './routes/facilityRoutes.js';
 import sosRoutes from './routes/sosRoutes.js';
 import ocrRoutes from './routes/ocrRoutes.js';
 import { configureEmergencySocket } from './sockets/emergencySocket.js';
-const app = express(), http = createServer(app), io = new Server(http, { cors: { origin: env.clientUrl, methods: ['GET', 'POST'] } });
+const app = express(), http = createServer(app), io = new Server(http, {
+  cors: {
+    origin: ["http://localhost:5173", "http://localhost:5174"],
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ["polling", "websocket"]
+});
 app.use(cors({ origin: env.clientUrl }));
 app.use(express.json({ limit: '1mb' }));
 app.get('/api/health', (_q, r) => r.json({ success: true, data: { status: 'operational', database: databaseMode, demoMode: databaseMode === 'memory' } }));

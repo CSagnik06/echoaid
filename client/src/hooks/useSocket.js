@@ -8,13 +8,16 @@ function useSocket(onAlert) {
       reconnection: true,
       reconnectionAttempts: 5,
       timeout: 4e3,
-      transports: ['websocket', 'polling']
+      transports: ["polling", "websocket"],
+      autoConnect: true
     });
     socket.on("connect", () => setConnected(true));
     socket.on("disconnect", () => setConnected(false));
     for (const e of ["sos:created", "sos:update", "sos:acknowledged"]) socket.on(e, onAlert);
     return () => {
-      socket.disconnect();
+      if (socket.connected) {
+        socket.disconnect();
+      }
     };
   }, [onAlert]);
   return connected;

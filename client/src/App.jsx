@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BookOpen, ChevronRight, HeartPulse, Map, MapPin, Mic, Play, ShieldAlert, Square, Stethoscope, FileText, Droplet } from "lucide-react";
 import { Navbar } from "./components/common/Navbar";
 import { LanguageSelector } from "./components/voice/LanguageSelector";
@@ -47,6 +47,7 @@ export default function App() {
   const tts = useVoiceSynthesis();
   const onSocket = useCallback((nextAlert) => setAlert(nextAlert), []);
   const socket = useSocket(onSocket);
+  const lastCoordRef = useRef(null);
 
   // Fetch real facilities within 10km radius of the user's actual location
   useEffect(() => {
@@ -54,12 +55,22 @@ export default function App() {
     const lat = geo?.latitude || 22.5726;
     const lng = geo?.longitude || 88.3639;
 
+    if (
+      lastCoordRef.current &&
+      Math.abs(lastCoordRef.current.lat - lat) < 0.001 &&
+      Math.abs(lastCoordRef.current.lng - lng) < 0.001
+    ) {
+      return;
+    }
+
+    lastCoordRef.current = { lat, lng };
     api.facilities(lat, lng).then((data) => {
       if (data && data.length > 0) {
         setFacilities(data);
+        setSelected((prev) => prev || data[0]);
       }
     });
-  }, [geo.latitude, geo.longitude]);
+  }, [geo?.latitude, geo?.longitude]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -134,7 +145,8 @@ export default function App() {
     <div className="app-shell">
       <Navbar activeView={view} onNavigate={handleNavigate} online={online && socket} />
       <main className="page-shell">
-        {(view === "Dashboard" || view === "Voice Triage") && (
+        {/* Supports both "Voice Triage" and "Voice Check" navigation triggers */}
+        {(view === "Dashboard" || view === "Voice Triage" || view === "Voice Check") && (
           <>
             <section className="hero-section">
               <div className="hero-badge">✦ AI-powered emergency guidance</div>
@@ -266,7 +278,7 @@ export default function App() {
                     ))
                   )}
                 </div>
-                <div style={{ width: '100%', minHeight: '550px' }}>
+                <div style={{ minWidth: "0", width: "100%", flex: "1", minHeight: "550px" }}>
                   <NeonMap facilities={displayFacilities} position={geo} onSelect={setSelected} selected={selected} />
                   <HospitalDrawer facility={selected} onClose={() => setSelected(undefined)} userPosition={geo} />
                 </div>
