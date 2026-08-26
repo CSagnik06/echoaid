@@ -16,6 +16,7 @@ import "./index.css";
 import "./cprImage.css";
 import "./healthTracker.css";
 import "./medicineSafety.css";
+import "./medicinesSimple.css";
 import "./womensHealth.css";
 import "./accessibility.css";
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => void 0));

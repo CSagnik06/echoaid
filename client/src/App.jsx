@@ -31,7 +31,7 @@ const features = [
   ["Blood Bank", "Live blood inventory and availability.", Droplet, "Blood Bank", "red"],
   ["Report Simplifier", "Understand complex medical jargon with AI.", FileText, "Medical Reports", "purple"],
   ["Health Tracker", "Track your health and recovery progress over time.", HeartPulse, "Health Tracker", "green"],
-  ["Medicine Safety", "Understand medicine uses, side effects and important safety information.", Pill, "Medicine Safety", "amber"],
+  ["Medicines", "Search medicines, understand their uses and manage your medicine reminders.", Pill, "Medicines", "amber"],
   ["Women's Health", "Track your cycle, symptoms and women's health over time.", CalendarHeart, "Women's Health", "blue"],
   ["Offline First Aid", "Essential emergency guides, ready when offline.", BookOpen, "First Aid", "amber"]
 ];
@@ -117,7 +117,7 @@ export default function App() {
       {view === "Blood Bank" && <BloodStockCounter facilities={facilities} />}
       {view === "Medical Reports" && <ReportSimplifier language={language} />}
       {view === "Health Tracker" && <HealthTracker onNavigate={handleNavigate} />}
-      {view === "Medicine Safety" && <MedicineSafety onNavigate={handleNavigate} />}
+      {view === "Medicines" && <MedicineSafety onNavigate={handleNavigate} />}
       {view === "Women's Health" && <WomensHealth onNavigate={handleNavigate} />}
       {view === "First Aid" && <section className="firstaid-view"><header className="page-heading"><span className="section-kicker">OFFLINE KNOWLEDGE CENTER</span><h1>Emergency first-aid guides</h1><p>Quick, step-by-step guidance for common emergency situations — available even offline.</p></header><div className="firstaid-grid"><FirstAidList guides={getFirstAid()} onSelect={setGuide} /><StepByStepCard guide={guide} /></div></section>}
       {view === "System Status" && <section className="system-card"><span className="section-kicker">SYSTEM STATUS</span><h1>Everything is ready when you are.</h1><div className="system-grid"><p><i /> API fallback-safe</p><p><i /> GPS {geo.error ? "demo active" : "available"}</p><p><i /> Voice recorder {window.MediaRecorder ? "available" : "unavailable"}</p><p><i /> Socket {socket ? "connected" : "local demo"}</p></div><p className="disclaimer">Demo mode keeps SANJEEVANI useful without a database, API key, GPS, microphone, or socket connection.</p></section>}

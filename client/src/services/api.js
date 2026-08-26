@@ -82,6 +82,7 @@ const api = {
     markReminderTaken: (id, data) => healthRequest("post", `/api/health-tracker/history/${id}/reminder/taken`, data)
   },
   medicines: {
+    ask: question => client.post("/api/medicines/ask", { question }).then(response => response.data.data),
     search: query => client.get("/api/medicines/search", { params: { q: query } }).then(response => response.data.data),
     details: id => client.get(`/api/medicines/labels/${encodeURIComponent(id)}`).then(response => response.data.data)
   },
