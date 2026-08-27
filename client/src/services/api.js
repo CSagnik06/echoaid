@@ -175,11 +175,15 @@ const api = {
     });
   },
 
-  voiceConsult: (history, language) =>
-    client.post("/api/voice/consult", { history, language }).then(r => r.data.data),
+  voiceConsultation: async (history, language = "English") => {
+    const res = await client.post("/api/voice/consultation", { history, language });
+    return res.data?.data || res.data;
+  },
 
-  triage: (text, language) =>
-    client.post("/api/triage", { text, language }).then(r => r.data.data),
+  triage: async (symptoms, language = "English") => {
+    const res = await client.post("/api/triage", { symptoms, language });
+    return res.data?.data || res.data;
+  },
 
   sos: (body) =>
     unwrap(client.post("/api/sos", body), {

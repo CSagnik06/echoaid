@@ -409,12 +409,18 @@ export function ReportSimplifier({ language = "English" }) {
             {renderFormattedText(result)}
           </div>
           
-          <div className="report-reader-actions">
-            <button className="button primary" onClick={handleDownloadPDF}>
-              <Download size={16} /> Download PDF
+          <div className="report-reader-actions" style={{ display: "flex", gap: "12px", padding: "0 32px 32px", justifyContent: "flex-start" }}>
+            <button 
+              onClick={handleDownloadPDF}
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#ecfdf5", color: "#065f46", border: "1px solid #6ee7b7", padding: "8px 16px", borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+            >
+              <Download size={16} style={{ color: "#047857" }} /> Download PDF
             </button>
-            <button className="button secondary" onClick={handleReset}>
-              <RotateCcw size={16} /> Analyze Another Document
+            <button 
+              onClick={handleReset}
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#f5f5f4", color: "#44403c", border: "1px solid #d6d3d1", padding: "8px 16px", borderRadius: "8px", fontSize: "12px", fontWeight: "500", cursor: "pointer", transition: "all 0.2s" }}
+            >
+              <RotateCcw size={16} style={{ color: "#57534e" }} /> Analyze Another Document
             </button>
           </div>
           
