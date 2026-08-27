@@ -166,18 +166,36 @@ const api = {
   },
 
   transcribe: (audio, language) => {
-    const f = new FormData();
-    f.append("audio", audio, "voice.webm");
-    f.append("language", language);
-    return unwrap(client.post("/api/voice/transcribe", f), {
-      text: "I have a headache and feel dizzy since this morning.",
-      source: "local fallback"
-    });
+  const f = new FormData();
+  f.append("audio", audio, "voice.webm");
+  f.append("language", language);
+  return unwrap(client.post("/api/voice/transcribe", f), { text: "I have a headache and feel dizzy since this morning.", source: "local fallback" });
+}, triage: (text, language) => unwrap(client.post("/api/triage", { text, language }), { alertLevel: "YELLOW", detectedLanguage: language, summary: "Your symptoms should be assessed by a clinician soon.", immediateAction: ["Rest in a safe place.", "Arrange a same-day clinical assessment.", "Call 112 if symptoms become severe."], suggestedFacility: "Clinic or hospital outpatient", voiceResponse: "Please arrange medical care today. This is not a medical diagnosis.", source: "local fallback" }), sos: (body) => unwrap(client.post("/api/sos", body), { id: "DEMO-SOS", coordinates: { latitude: 22.5726, longitude: 88.3639 }, timestamp: (/* @__PURE__ */ new Date()).toISOString(), urgency: "RED", conditionSummary: "Emergency assistance requested", status: "dispatching", etaMinutes: 12 }), firstAid: () => FIRST_AID,
+  healthTracker: {
+    load: () => healthRequest("get", "/api/health-tracker"),
+    addCareMember: data => healthRequest("post", "/api/health-tracker/care-circle", data),
+    updateCareMember: (id, data) => healthRequest("patch", `/api/health-tracker/care-circle/${id}`, data),
+    deleteCareMember: id => healthRequest("delete", `/api/health-tracker/care-circle/${id}`),
+    createPlan: data => healthRequest("post", "/api/health-tracker/plans", data),
+    updatePlan: (id, data) => healthRequest("patch", `/api/health-tracker/plans/${id}`, data),
+    deletePlan: id => healthRequest("delete", `/api/health-tracker/plans/${id}`),
+    addCheckIn: (id, data) => healthRequest("post", `/api/health-tracker/plans/${id}/check-ins`, data),
+    deleteCheckIn: (planId, id) => healthRequest("delete", `/api/health-tracker/plans/${planId}/check-ins/${id}`),
+    addMilestone: (id, data) => healthRequest("post", `/api/health-tracker/plans/${id}/milestones`, data),
+    updateMilestone: (planId, id, data) => healthRequest("patch", `/api/health-tracker/plans/${planId}/milestones/${id}`, data),
+    deleteMilestone: (planId, id) => healthRequest("delete", `/api/health-tracker/plans/${planId}/milestones/${id}`),
+    addHistory: data => healthRequest("post", "/api/health-tracker/history", data),
+    updateHistory: (id, data) => healthRequest("patch", `/api/health-tracker/history/${id}`, data),
+    deleteHistory: id => healthRequest("delete", `/api/health-tracker/history/${id}`),
+    saveReminder: (id, data) => healthRequest("put", `/api/health-tracker/history/${id}/reminder`, data),
+    deleteReminder: id => healthRequest("delete", `/api/health-tracker/history/${id}/reminder`),
+    markReminderTaken: (id, data) => healthRequest("post", `/api/health-tracker/history/${id}/reminder/taken`, data)
   },
-
-  voiceConsultation: async (history, language = "English") => {
-    const res = await client.post("/api/voice/consultation", { history, language });
-    return res.data?.data || res.data;
+  medicines: {
+    research: name => client.post("/api/medicines/research", { name }).then(response => response.data.data),
+    ask: question => client.post("/api/medicines/ask", { question }).then(response => response.data.data),
+    search: query => client.get("/api/medicines/search", { params: { q: query } }).then(response => response.data.data),
+    details: id => client.get(`/api/medicines/labels/${encodeURIComponent(id)}`).then(response => response.data.data)
   },
 
   triage: async (symptoms, language = "English") => {

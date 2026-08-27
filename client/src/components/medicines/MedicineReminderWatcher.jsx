@@ -2,40 +2,53 @@ import { useEffect, useState } from "react";
 import { api } from "../../services/api";
 import { localToday } from "../../services/cycleCalculations";
 
-const idOf = (item) => item?._id || item?.id;
+const idOf = (item) => item?._id || item?.id || item?.title;
 const shown = new Set();
 
 export function MedicineReminderWatcher() {
   const [medicines, setMedicines] = useState([]);
 
   useEffect(() => {
-    const load = () => {
-      // Safe guard: check if api.healthTracker and load function exist
-      if (api?.healthTracker?.load) {
-        api.healthTracker
-          .load()
-          .then((profile) =>
-            setMedicines(
-              (profile?.history || []).filter(
-                (item) => item?.category === "Medicine"
-              )
-            )
+    // Request permission if not yet decided
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    const loadFromLocalStorage = () => {
+      try {
+        const localData = JSON.parse(
+          localStorage.getItem("sanjeevani_health_profile") || "{}"
+        );
+        setMedicines(
+          (localData?.history || []).filter(
+            (item) => item?.category === "Medicine"
           )
-          .catch(() => setMedicines([]));
-      } else {
-        // Fallback to local storage if API helper is not declared
-        try {
-          const localData = JSON.parse(
-            localStorage.getItem("sanjeevani_health_profile") || "{}"
-          );
-          setMedicines(
-            (localData?.history || []).filter(
-              (item) => item?.category === "Medicine"
-            )
-          );
-        } catch {
-          setMedicines([]);
+        );
+      } catch {
+        setMedicines([]);
+      }
+    };
+
+    const load = () => {
+      try {
+        if (typeof api?.healthTracker?.load === "function") {
+          const promise = api.healthTracker.load();
+          if (promise && typeof promise.then === "function") {
+            promise
+              .then((profile) =>
+                setMedicines(
+                  (profile?.history || []).filter(
+                    (item) => item?.category === "Medicine"
+                  )
+                )
+              )
+              .catch(() => loadFromLocalStorage());
+            return;
+          }
         }
+        loadFromLocalStorage();
+      } catch (err) {
+        loadFromLocalStorage();
       }
     };
 
@@ -73,21 +86,21 @@ export function MedicineReminderWatcher() {
           if (!taken && !shown.has(key)) {
             shown.add(key);
             try {
-              new Notification("Medicine Reminder", {
+              new Notification("💊 Medicine Reminder", {
                 body: `Time to take your recorded medicine: ${item.title || "Prescribed Dose"}${
-                  item.formStrength ? ` ${item.formStrength}` : ""
+                  item.formStrength ? ` (${item.formStrength})` : ""
                 }`,
-                tag: key
+                tag: key,
               });
             } catch {
-              /* Browser notifications fallback silently */
+              /* Browser notifications fallback */
             }
           }
         });
     };
 
     check();
-    const timer = window.setInterval(check, 30000);
+    const timer = window.setInterval(check, 20000);
     return () => window.clearInterval(timer);
   }, [medicines]);
 

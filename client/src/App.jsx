@@ -34,6 +34,7 @@ import { HealthTracker } from "./components/health/HealthTracker";
 import { MedicineSafety } from "./components/medicines/MedicineSafety";
 import { MedicineReminderWatcher } from "./components/medicines/MedicineReminderWatcher";
 import { WomensHealth } from "./components/womensHealth/WomensHealth";
+import { CareCircle } from "./components/careCircle/CareCircle";
 import { api } from "./services/api";
 import { cacheFirstAid, getFirstAid } from "./services/offlineStorage";
 import { useGeolocation } from "./hooks/useGeolocation";

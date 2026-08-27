@@ -9,6 +9,8 @@ import "./index.css";
 import "./cprImage.css";
 import "./healthTracker.css";
 import "./medicineSafety.css";
+import "./medicinesSimple.css";
+import "./careCircle.css";
 import "./womensHealth.css";
 import "./accessibility.css";
 

@@ -11,6 +11,8 @@ const allowedInputs = new Set(['number', 'scale', 'boolean']);
 const allowedDirections = new Set(['higher', 'lower', 'neutral']);
 const allowedHistory = new Set(['Condition', 'Surgery', 'Illness', 'Allergy', 'Medicine']);
 const allowedMilestones = new Set(['Completed', 'In Progress', 'Upcoming']);
+const allowedRelationships = new Set(['Mother', 'Father', 'Grandmother', 'Grandfather', 'Sister', 'Brother', 'Spouse', 'Child', 'Other']);
+const allowedBloodGroups = new Set(['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown']);
 
 const clean = (value, max = 2000) => typeof value === 'string' ? value.replace(/[<>]/g, '').trim().slice(0, max) : '';
 const validDate = value => value && !Number.isNaN(new Date(value).getTime());
@@ -19,7 +21,7 @@ const ownerKey = req => {
   return /^[a-zA-Z0-9-]{20,80}$/.test(value) ? value : null;
 };
 const blankWomenHealth = () => ({ setupComplete: false, regularity: '', goals: [], fertilityEstimates: false, predictionsPaused: false, trackMood: true, trackEnergy: true, trackDischarge: false, cycles: [], dailyLogs: [], conditions: [], appointments: [] });
-const blankProfile = key => ({ ownerKey: key, plans: [], history: [], womensHealth: blankWomenHealth() });
+const blankProfile = key => ({ ownerKey: key, plans: [], history: [], careCircle: [], womensHealth: blankWomenHealth() });
 const json = value => value?.toObject ? value.toObject() : structuredClone(value);
 
 async function loadProfile(key) {
@@ -79,6 +81,38 @@ router.use((req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try { res.json({ success: true, data: json(await loadProfile(req.ownerKey)) }); } catch (error) { next(error); }
+});
+
+router.post('/care-circle', async (req, res, next) => {
+  try {
+    const body = req.body || {}, name = clean(body.name, 100), relationship = clean(body.relationship, 30), age = body.age === '' || body.age === undefined ? undefined : Number(body.age), bloodGroup = clean(body.bloodGroup, 10);
+    if (!name || !allowedRelationships.has(relationship) || (age !== undefined && (!Number.isInteger(age) || age < 0 || age > 130)) || !allowedBloodGroups.has(bloodGroup)) return res.status(400).json({ success: false, message: 'Enter a valid name, relationship, age, and blood group.' });
+    const profile = await loadProfile(req.ownerKey), member = { _id: makeId(), name, relationship, age, bloodGroup, allergy: clean(body.allergy, 300), emergencyContact: clean(body.emergencyContact, 40), createdAt: new Date(), updatedAt: new Date() };
+    if (!profile.careCircle) profile.careCircle = [];
+    profile.careCircle.push(member); await saveProfile(profile); res.status(201).json({ success: true, data: json(findItem(profile.careCircle, String(member._id))) });
+  } catch (error) { next(error); }
+});
+
+router.patch('/care-circle/:memberId', async (req, res, next) => {
+  try {
+    const profile = await loadProfile(req.ownerKey), member = findItem(profile.careCircle || [], req.params.memberId);
+    if (!member) return res.status(404).json({ success: false, message: 'Care Circle member not found.' });
+    const body = req.body || {}, name = body.name === undefined ? member.name : clean(body.name, 100), relationship = body.relationship === undefined ? member.relationship : clean(body.relationship, 30), age = body.age === '' ? undefined : body.age === undefined ? member.age : Number(body.age), bloodGroup = body.bloodGroup === undefined ? member.bloodGroup : clean(body.bloodGroup, 10);
+    if (!name || !allowedRelationships.has(relationship) || (age !== undefined && (!Number.isInteger(age) || age < 0 || age > 130)) || !allowedBloodGroups.has(bloodGroup)) return res.status(400).json({ success: false, message: 'Enter valid family member details.' });
+    Object.assign(member, { name, relationship, age, bloodGroup });
+    if (body.allergy !== undefined) member.allergy = clean(body.allergy, 300);
+    if (body.emergencyContact !== undefined) member.emergencyContact = clean(body.emergencyContact, 40);
+    await saveProfile(profile); res.json({ success: true, data: json(member) });
+  } catch (error) { next(error); }
+});
+
+router.delete('/care-circle/:memberId', async (req, res, next) => {
+  try {
+    const profile = await loadProfile(req.ownerKey), members = profile.careCircle || [], index = members.findIndex(item => String(item._id || item.id) === req.params.memberId);
+    if (index < 0) return res.status(404).json({ success: false, message: 'Care Circle member not found.' });
+    if (profile.history.some(item => item.patientProfileId === req.params.memberId)) return res.status(409).json({ success: false, message: 'Remove this member’s medicines and health conditions before removing their profile.' });
+    members.splice(index, 1); await saveProfile(profile); res.json({ success: true, data: { id: req.params.memberId } });
+  } catch (error) { next(error); }
 });
 
 router.post('/plans', async (req, res, next) => {
@@ -147,7 +181,7 @@ router.delete('/plans/:planId/milestones/:milestoneId', async (req, res, next) =
 });
 
 router.post('/history', async (req, res, next) => {
-  try { if (!allowedHistory.has(req.body.category) || !clean(req.body.title, 160)) return res.status(400).json({ success: false, message: 'Choose a category and enter a title.' }); const profile = await loadProfile(req.ownerKey); const item = { _id: databaseMode === 'mongo' ? new mongoose.Types.ObjectId() : randomUUID(), category: req.body.category, title: clean(req.body.title, 160), startDate: validDate(req.body.startDate) ? new Date(req.body.startDate) : undefined, endDate: validDate(req.body.endDate) ? new Date(req.body.endDate) : undefined, status: clean(req.body.status, 80), details: clean(req.body.details), hospital: clean(req.body.hospital, 160), doctor: clean(req.body.doctor, 160), dose: clean(req.body.dose, 100), frequency: clean(req.body.frequency, 100), reaction: clean(req.body.reaction, 500), medicineSourceId: clean(req.body.medicineSourceId, 100), medicineSource: clean(req.body.medicineSource, 100), formStrength: clean(req.body.formStrength, 160), purpose: clean(req.body.purpose, 500), prescribedBy: clean(req.body.prescribedBy, 160), associatedPlanId: clean(req.body.associatedPlanId, 80), createdAt: new Date(), updatedAt: new Date() }; profile.history.push(item); await saveProfile(profile); res.status(201).json({ success: true, data: json(findItem(profile.history, String(item._id))) }); } catch (error) { next(error); }
+  try { if (!allowedHistory.has(req.body.category) || !clean(req.body.title, 160)) return res.status(400).json({ success: false, message: 'Choose a category and enter a title.' }); const profile = await loadProfile(req.ownerKey), patientProfileId = clean(req.body.patientProfileId, 80); if (patientProfileId && !findItem(profile.careCircle || [], patientProfileId)) return res.status(400).json({ success: false, message: 'Choose a valid Care Circle member.' }); const item = { _id: databaseMode === 'mongo' ? new mongoose.Types.ObjectId() : randomUUID(), patientProfileId, category: req.body.category, title: clean(req.body.title, 160), startDate: validDate(req.body.startDate) ? new Date(req.body.startDate) : undefined, endDate: validDate(req.body.endDate) ? new Date(req.body.endDate) : undefined, status: clean(req.body.status, 80), details: clean(req.body.details), hospital: clean(req.body.hospital, 160), doctor: clean(req.body.doctor, 160), dose: clean(req.body.dose, 100), frequency: clean(req.body.frequency, 100), reaction: clean(req.body.reaction, 500), medicineSourceId: clean(req.body.medicineSourceId, 100), medicineSource: clean(req.body.medicineSource, 100), formStrength: clean(req.body.formStrength, 160), purpose: clean(req.body.purpose, 500), prescribedBy: clean(req.body.prescribedBy, 160), associatedPlanId: clean(req.body.associatedPlanId, 80), createdAt: new Date(), updatedAt: new Date() }; profile.history.push(item); await saveProfile(profile); res.status(201).json({ success: true, data: json(findItem(profile.history, String(item._id))) }); } catch (error) { next(error); }
 });
 
 router.patch('/history/:historyId', async (req, res, next) => {
