@@ -1,15 +1,14 @@
 import axios from "axios";
 import { FIRST_AID } from "./offlineStorage";
+import { supabase } from "./supabase";
 const client = axios.create({ baseURL: import.meta.env.VITE_API_URL || "", timeout: 9e3 });
-const healthOwnerKey = (() => {
-  const storageKey = "sanjeevani-health-owner";
-  try {
-    let value = localStorage.getItem(storageKey);
-    if (!value) { value = crypto.randomUUID(); localStorage.setItem(storageKey, value); }
-    return value;
-  } catch { return "anonymous-health-owner-0001"; }
-})();
-const healthRequest = (method, url, data) => client({ method, url, data, headers: { "x-health-owner-key": healthOwnerKey } }).then(response => response.data.data);
+const authHeaders = async () => {
+  if (!supabase) throw new Error("Authentication is not configured.");
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.access_token) throw new Error("Authentication required.");
+  return { Authorization: `Bearer ${data.session.access_token}` };
+};
+const healthRequest = async (method, url, data) => client({ method, url, data, headers: await authHeaders() }).then(response => response.data.data);
 const fallbackFacilities = [{ id: "local", name: "SSKM Medical College & Hospital", type: "Hospital", latitude: 22.5384, longitude: 88.3433, distance: 2.8, icuBeds: 12, emergency: true, bloodInventory: { OPlus: 42, OMinus: 5, APlus: 24, BPlus: 17 }, address: "AJC Bose Road, Kolkata", phone: "033-2204-1100" }];
 const unwrap = (p, fallback) => p.then((r) => r.data.data).catch(() => fallback);
 const api = { 
@@ -64,6 +63,7 @@ const api = {
   f.append("language", language);
   return unwrap(client.post("/api/voice/transcribe", f), { text: "I have a headache and feel dizzy since this morning.", source: "local fallback" });
 }, triage: (text, language) => unwrap(client.post("/api/triage", { text, language }), { alertLevel: "YELLOW", detectedLanguage: language, summary: "Your symptoms should be assessed by a clinician soon.", immediateAction: ["Rest in a safe place.", "Arrange a same-day clinical assessment.", "Call 112 if symptoms become severe."], suggestedFacility: "Clinic or hospital outpatient", voiceResponse: "Please arrange medical care today. This is not a medical diagnosis.", source: "local fallback" }), sos: (body) => unwrap(client.post("/api/sos", body), { id: "DEMO-SOS", coordinates: { latitude: 22.5726, longitude: 88.3639 }, timestamp: (/* @__PURE__ */ new Date()).toISOString(), urgency: "RED", conditionSummary: "Emergency assistance requested", status: "dispatching", etaMinutes: 12 }), firstAid: () => FIRST_AID,
+  admin: { me: async () => client.get("/api/admin/me", { headers: await authHeaders() }).then(response => response.data.data) },
   healthTracker: {
     load: () => healthRequest("get", "/api/health-tracker"),
     addCareMember: data => healthRequest("post", "/api/health-tracker/care-circle", data),

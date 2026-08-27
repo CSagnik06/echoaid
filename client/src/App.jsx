@@ -18,6 +18,10 @@ import { MedicineSafety } from "./components/medicines/MedicineSafety";
 import { MedicineReminderWatcher } from "./components/medicines/MedicineReminderWatcher";
 import { WomensHealth } from "./components/womensHealth/WomensHealth";
 import { CareCircle } from "./components/careCircle/CareCircle";
+import { LoginPage } from "./components/auth/LoginPage";
+import { AdminPage } from "./components/admin/AdminPage";
+import { useAuth } from "./auth/AuthContext";
+import { supabase } from "./services/supabase";
 import { api } from "./services/api";
 import { cacheFirstAid, getFirstAid } from "./services/offlineStorage";
 import { useGeolocation } from "./hooks/useGeolocation";
@@ -37,9 +41,13 @@ const features = [
   ["Care Circle", "Keep your family's important health information together.", HeartHandshake, "Care Circle", "green"],
   ["Offline First Aid", "Essential emergency guides, ready when offline.", BookOpen, "First Aid", "amber"]
 ];
+const protectedViews = new Set(["Health Tracker", "Women's Health", "Care Circle"]);
 
 export default function App() {
+  const { user, loading: authLoading, isHospitalAdmin } = useAuth();
   const [view, setView] = useState("Dashboard");
+  const [loginMode, setLoginMode] = useState(null);
+  const [pendingView, setPendingView] = useState(null);
   const [language, setLanguage] = useState("English");
   const [triage, setTriage] = useState();
   const [facilities, setFacilities] = useState([]);
@@ -85,17 +93,25 @@ export default function App() {
   const showVoice = () => { setView("Voice Triage"); setTimeout(() => document.getElementById("symptoms")?.focus(), 0); };
 
   const handleNavigate = (newView) => {
+    if (protectedViews.has(newView) && !user) { setPendingView(newView); setLoginMode("user"); setView("Sign In"); return; }
+    if (newView === "Admin" && !isHospitalAdmin) { setPendingView("Admin"); setLoginMode("admin"); setView("Sign In"); return; }
+    if (newView === "Sign In") setLoginMode(null);
     setView(newView);
     if (newView === "Dashboard") {
       setTriage(undefined);
       setText("");
     }
   };
+  const authSuccess = mode => { const destination = mode === "admin" ? "Admin" : pendingView && pendingView !== "Admin" ? pendingView : "Dashboard"; setPendingView(null); setLoginMode(null); setView(destination); };
+  const signOut = async () => { await supabase?.auth.signOut(); setPendingView(null); setView("Dashboard"); };
+  const requirePatientAuth = () => { setPendingView("Medicines"); setLoginMode("user"); setView("Sign In"); };
+
+  if (authLoading) return <div className="app-shell"><main className="page-shell"><section className="system-card">Restoring your secure session…</section></main></div>;
 
   return <div className="app-shell">
-    <MedicineReminderWatcher />
+    {user && <MedicineReminderWatcher />}
     <AccessibilitySettings />
-    <Navbar activeView={view} onNavigate={handleNavigate} online={online && socket} />
+    <Navbar activeView={view} onNavigate={handleNavigate} online={online && socket} user={user} isHospitalAdmin={isHospitalAdmin} onSignOut={signOut} />
     <main className="page-shell">
       {(view === "Dashboard" || view === "Voice Triage") && <>
         <section className="hero-section">
@@ -118,10 +134,12 @@ export default function App() {
       {view === "SOS Response" && <section className="sos-view"><header className="page-heading centered"><span className="section-kicker emergency-text">EMERGENCY ASSISTANCE</span><h1>Help is one step away.</h1><p>Share your location with our simulated response system. In a real emergency, call <b>112</b> immediately.</p></header><div className="sos-layout"><section className="sos-intro"><span className="sos-icon"><ShieldAlert size={30} /></span><h2>Emergency SOS</h2><p>Request immediate assistance and share your current location with the response team.</p><SosButton geo={geo} onConfirm={sos} /></section><EmergencyTracker alert={alert} /></div></section>}
       {view === "Blood Bank" && <BloodStockCounter facilities={facilities} />}
       {view === "Medical Reports" && <ReportSimplifier language={language} />}
-      {view === "Health Tracker" && <HealthTracker onNavigate={handleNavigate} />}
-      {view === "Medicines" && <MedicineSafety onNavigate={handleNavigate} />}
-      {view === "Women's Health" && <WomensHealth onNavigate={handleNavigate} />}
-      {view === "Care Circle" && <CareCircle />}
+      {view === "Health Tracker" && user && <HealthTracker onNavigate={handleNavigate} />}
+      {view === "Medicines" && <MedicineSafety onNavigate={handleNavigate} user={user} onRequireAuth={requirePatientAuth} />}
+      {view === "Women's Health" && user && <WomensHealth onNavigate={handleNavigate} />}
+      {view === "Care Circle" && user && <CareCircle />}
+      {view === "Sign In" && <LoginPage initialMode={loginMode} onSuccess={authSuccess} onCancel={() => { setPendingView(null); setView("Dashboard"); }} />}
+      {view === "Admin" && isHospitalAdmin && <AdminPage user={user} />}
       {view === "First Aid" && <section className="firstaid-view"><header className="page-heading"><span className="section-kicker">OFFLINE KNOWLEDGE CENTER</span><h1>Emergency first-aid guides</h1><p>Quick, step-by-step guidance for common emergency situations — available even offline.</p></header><div className="firstaid-grid"><FirstAidList guides={getFirstAid()} onSelect={setGuide} /><StepByStepCard guide={guide} /></div></section>}
       {view === "System Status" && <section className="system-card"><span className="section-kicker">SYSTEM STATUS</span><h1>Everything is ready when you are.</h1><div className="system-grid"><p><i /> API fallback-safe</p><p><i /> GPS {geo.error ? "demo active" : "available"}</p><p><i /> Voice recorder {window.MediaRecorder ? "available" : "unavailable"}</p><p><i /> Socket {socket ? "connected" : "local demo"}</p></div><p className="disclaimer">Demo mode keeps SANJEEVANI useful without a database, API key, GPS, microphone, or socket connection.</p></section>}
     </main>

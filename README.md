@@ -203,7 +203,11 @@ MONGODB_URI=
 GEMINI_API_KEY=
 GROQ_API_KEY=
 CLIENT_URL=http://localhost:5173
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
 ```
+
+The Vite client also uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Patient accounts may sign up publicly. Hospital administrators must be created by a trusted project owner and assigned `app_metadata.role = "hospital_admin"`; there is no public admin signup.
 
 No variable is required for demo mode. MongoDB failure enables in-memory seeded facilities; missing Gemini enables keyword safety triage; missing Groq enables a clearly labelled fallback transcription.
 

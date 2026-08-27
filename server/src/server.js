@@ -11,6 +11,7 @@ import sosRoutes from './routes/sosRoutes.js';
 import ocrRoutes from './routes/ocrRoutes.js';
 import healthTrackerRoutes from './routes/healthTrackerRoutes.js';
 import medicineRoutes from './routes/medicineRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 import { configureEmergencySocket } from './sockets/emergencySocket.js';
 const app = express(), http = createServer(app), io = new Server(http, { cors: { origin: env.clientUrl, methods: ['GET', 'POST'] } });
 app.use(cors({ origin: env.clientUrl }));
@@ -23,6 +24,7 @@ app.use('/api/sos', sosRoutes);
 app.use('/api/simplify-report', ocrRoutes);
 app.use('/api/health-tracker', healthTrackerRoutes);
 app.use('/api/medicines', medicineRoutes);
+app.use('/api/admin', adminRoutes);
 app.use((_q, r) => r.status(404).json({ success: false, message: 'Route not found' }));
 configureEmergencySocket(io);
 connectDb().finally(() => {

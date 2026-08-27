@@ -12,6 +12,7 @@ L.Icon.Default.mergeOptions({
 });
 
 import App from "./App";
+import { AuthProvider } from "./auth/AuthContext";
 import "./index.css";
 import "./cprImage.css";
 import "./healthTracker.css";
@@ -20,5 +21,6 @@ import "./medicinesSimple.css";
 import "./careCircle.css";
 import "./womensHealth.css";
 import "./accessibility.css";
+import "./auth.css";
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => void 0));
-createRoot(document.getElementById("root")).render(<React.StrictMode><App /></React.StrictMode>);
+createRoot(document.getElementById("root")).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>);

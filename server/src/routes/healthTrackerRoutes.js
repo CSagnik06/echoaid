@@ -3,6 +3,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { databaseMode } from '../config/db.js';
 import { HealthProfile } from '../models/HealthProfile.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 const memoryProfiles = new Map();
@@ -16,10 +17,6 @@ const allowedBloodGroups = new Set(['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O
 
 const clean = (value, max = 2000) => typeof value === 'string' ? value.replace(/[<>]/g, '').trim().slice(0, max) : '';
 const validDate = value => value && !Number.isNaN(new Date(value).getTime());
-const ownerKey = req => {
-  const value = req.get('x-health-owner-key') || '';
-  return /^[a-zA-Z0-9-]{20,80}$/.test(value) ? value : null;
-};
 const blankWomenHealth = () => ({ setupComplete: false, regularity: '', goals: [], fertilityEstimates: false, predictionsPaused: false, trackMood: true, trackEnergy: true, trackDischarge: false, cycles: [], dailyLogs: [], conditions: [], appointments: [] });
 const blankProfile = key => ({ ownerKey: key, plans: [], history: [], careCircle: [], womensHealth: blankWomenHealth() });
 const json = value => value?.toObject ? value.toObject() : structuredClone(value);
@@ -73,9 +70,8 @@ const womenData = profile => {
 const makeId = () => databaseMode === 'mongo' ? new mongoose.Types.ObjectId() : randomUUID();
 const cleanList = (value, maxItems = 20, maxLength = 80) => Array.isArray(value) ? [...new Set(value.map(item => clean(item, maxLength)).filter(Boolean))].slice(0, maxItems) : [];
 
-router.use((req, res, next) => {
-  req.ownerKey = ownerKey(req);
-  if (!req.ownerKey) return res.status(400).json({ success: false, message: 'A valid health owner key is required.' });
+router.use(requireAuth, (req, res, next) => {
+  req.ownerKey = req.user.id;
   next();
 });
 
