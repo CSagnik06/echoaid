@@ -1,6 +1,6 @@
 import express from 'express';
 import { getMedicineLabel, searchMedicineLabels } from '../services/medicineService.js';
-import { askMedicine, normalizeMedicineName } from '../services/geminiService.js';
+import { askMedicine, normalizeMedicineName, researchMedicine } from '../services/geminiService.js';
 import { medicineSearchVariants } from '../services/medicineAliases.js';
 
 const router = express.Router();
@@ -59,3 +59,6 @@ router.use((error, _req, res, _next) => {
 });
 
 export default router;
+router.post('/research', async (req, res, next) => {
+  try { const name = String(req.body?.name || '').trim(); if (!name) return res.status(400).json({ success: false, message: 'Enter a medicine name.' }); if (name.length > 120) return res.status(400).json({ success: false, message: 'Keep the medicine name under 120 characters.' }); res.json({ success: true, data: await researchMedicine(name) }); } catch (error) { next(error); }
+});

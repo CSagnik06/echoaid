@@ -39,7 +39,7 @@ Medical safety:
 - YELLOW Alert: Moderate symptoms, schedule clinic/doctor visit.
 - RED Alert: Severe emergencies (chest pain, stroke, heavy blood loss) with direct emergency alert.
 Ensure output is in the specified language: ${language}. Text: ${text}`;
-            const r = await ai.getGenerativeModel({ model: 'gemini-2.5-flash' }).generateContent(prompt);
+            const r = await ai.getGenerativeModel({ model: 'gemini-3.6-flash' }).generateContent(prompt);
             let rawText = r.response.text();
             rawText = rawText.replace(/```json|```/g, '').trim();
             const p = JSON.parse(rawText);
@@ -70,7 +70,7 @@ Do not add a disclaimer; the interface displays one separately.
 User question: ${question}`;
 
     try {
-        const response = await ai.getGenerativeModel({ model: 'gemini-2.5-flash' }).generateContent(instruction);
+        const response = await ai.getGenerativeModel({ model: 'gemini-3.6-flash' }).generateContent(instruction);
         const answer = response.response.text().trim();
         if (!answer) throw new Error('EMPTY_MEDICINE_AI_RESPONSE');
         return answer;
@@ -93,7 +93,7 @@ export async function normalizeMedicineName(value) {
 Use an empty string for any field that cannot be determined reliably. If the query is fake or unknown, leave genericName empty. User query: ${JSON.stringify(originalQuery)}`;
     try {
         const ai = new GoogleGenerativeAI(env.geminiKey);
-        const response = await ai.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: { temperature: 0 } }).generateContent(prompt);
+        const response = await ai.getGenerativeModel({ model: 'gemini-3.6-flash', generationConfig: { temperature: 0 } }).generateContent(prompt);
         const raw = response.response.text().replace(/```json|```/g, '').trim();
         const parsed = JSON.parse(raw);
         const confidence = ['high', 'medium', 'low'].includes(parsed.confidence) ? parsed.confidence : 'low';
@@ -103,4 +103,20 @@ Use an empty string for any field that cannot be determined reliably. If the que
     } catch {
         return null;
     }
+}
+
+export async function researchMedicine(name) {
+    if (!env.geminiKey) { const error = new Error('MEDICINE_AI_NOT_CONFIGURED'); error.code = 'MEDICINE_AI_NOT_CONFIGURED'; throw error; }
+    const prompt = `You are the medicine information assistant for Sanjeevani. Identify generic names, Indian brand names, strengths, and minor misspellings. Return ONLY raw JSON, no markdown:
+{"found":true,"confidence":"high|medium|low","searchedName":"","displayName":"","correctedName":"","genericName":"","strength":"","drugClass":"","uses":[],"commonSideEffects":[],"importantWarnings":[],"precautions":[],"simpleExplanation":""}
+If identity is uncertain return {"found":false,"confidence":"low","searchedName":"","message":"I could not confidently identify this medicine. Please check the spelling or packaging."}. Use short factual points. Do not diagnose, prescribe, recommend starting/stopping, or give personalized doses. Omit uncertain facts. Input: ${JSON.stringify(name)}`;
+    try {
+        const ai = new GoogleGenerativeAI(env.geminiKey);
+        const response = await ai.getGenerativeModel({ model: 'gemini-3.6-flash', generationConfig: { temperature: 0, responseMimeType: 'application/json' } }).generateContent(prompt);
+        const data = JSON.parse(response.response.text().replace(/```json|```/g, '').trim());
+        const cleanText = (value, max = 500) => typeof value === 'string' ? value.trim().slice(0, max) : '';
+        const cleanArray = value => Array.isArray(value) ? value.map(item => cleanText(item, 300)).filter(Boolean).slice(0, 8) : [];
+        if (data.found !== true || !['high', 'medium'].includes(data.confidence) || !cleanText(data.displayName || data.genericName, 100)) return { found: false, confidence: 'low', searchedName: name, message: "We couldn't confidently identify this medicine. Check the spelling or try the name written on the medicine packaging." };
+        return { found: true, confidence: data.confidence, searchedName: name, displayName: cleanText(data.displayName, 100), correctedName: cleanText(data.correctedName, 100), genericName: cleanText(data.genericName, 160), strength: cleanText(data.strength, 60), drugClass: cleanText(data.drugClass, 160), uses: cleanArray(data.uses), commonSideEffects: cleanArray(data.commonSideEffects), importantWarnings: cleanArray(data.importantWarnings), precautions: cleanArray(data.precautions), simpleExplanation: cleanText(data.simpleExplanation, 600) };
+    } catch (cause) { const error = new Error('MEDICINE_AI_UNAVAILABLE'); error.code = 'MEDICINE_AI_UNAVAILABLE'; error.cause = cause; throw error; }
 }
