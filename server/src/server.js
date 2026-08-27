@@ -12,6 +12,7 @@ import ocrRoutes from './routes/ocrRoutes.js';
 import healthTrackerRoutes from './routes/healthTrackerRoutes.js';
 import medicineRoutes from './routes/medicineRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import emergencyRoutes from './routes/emergencyRoutes.js';
 import { configureEmergencySocket } from './sockets/emergencySocket.js';
 const app = express(), http = createServer(app), io = new Server(http, { cors: { origin: env.clientUrl, methods: ['GET', 'POST'] } });
 app.use(cors({ origin: env.clientUrl }));
@@ -25,7 +26,12 @@ app.use('/api/simplify-report', ocrRoutes);
 app.use('/api/health-tracker', healthTrackerRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/emergency', emergencyRoutes);
 app.use((_q, r) => r.status(404).json({ success: false, message: 'Route not found' }));
+app.use((error, _req, res, _next) => {
+  console.error('Request failed:', error?.name || 'Error');
+  res.status(500).json({ success: false, message: 'The server could not complete that request. Please try again.' });
+});
 configureEmergencySocket(io);
 connectDb().finally(() => {
   const server = http.listen(env.port, () => console.info(`Sanjeevani API running on ${env.port}`));

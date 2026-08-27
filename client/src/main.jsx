@@ -22,5 +22,6 @@ import "./careCircle.css";
 import "./womensHealth.css";
 import "./accessibility.css";
 import "./auth.css";
+import "./emergencyQr.css";
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => void 0));
 createRoot(document.getElementById("root")).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>);

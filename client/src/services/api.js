@@ -64,6 +64,13 @@ const api = {
   return unwrap(client.post("/api/voice/transcribe", f), { text: "I have a headache and feel dizzy since this morning.", source: "local fallback" });
 }, triage: (text, language) => unwrap(client.post("/api/triage", { text, language }), { alertLevel: "YELLOW", detectedLanguage: language, summary: "Your symptoms should be assessed by a clinician soon.", immediateAction: ["Rest in a safe place.", "Arrange a same-day clinical assessment.", "Call 112 if symptoms become severe."], suggestedFacility: "Clinic or hospital outpatient", voiceResponse: "Please arrange medical care today. This is not a medical diagnosis.", source: "local fallback" }), sos: (body) => unwrap(client.post("/api/sos", body), { id: "DEMO-SOS", coordinates: { latitude: 22.5726, longitude: 88.3639 }, timestamp: (/* @__PURE__ */ new Date()).toISOString(), urgency: "RED", conditionSummary: "Emergency assistance requested", status: "dispatching", etaMinutes: 12 }), firstAid: () => FIRST_AID,
   admin: { me: async () => client.get("/api/admin/me", { headers: await authHeaders() }).then(response => response.data.data) },
+  emergency: {
+    public: token => client.get(`/api/emergency/${encodeURIComponent(token)}`).then(response => response.data.data),
+    load: () => healthRequest("get", "/api/health-tracker/emergency-profile"),
+    save: data => healthRequest("put", "/api/health-tracker/emergency-profile", data),
+    disable: () => healthRequest("post", "/api/health-tracker/emergency-profile/disable"),
+    regenerate: () => healthRequest("post", "/api/health-tracker/emergency-profile/regenerate")
+  },
   healthTracker: {
     load: () => healthRequest("get", "/api/health-tracker"),
     addCareMember: data => healthRequest("post", "/api/health-tracker/care-circle", data),

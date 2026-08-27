@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import express from 'express';
 import mongoose from 'mongoose';
 import { databaseMode } from '../config/db.js';
@@ -6,7 +6,7 @@ import { HealthProfile } from '../models/HealthProfile.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
-const memoryProfiles = new Map();
+export const memoryProfiles = new Map();
 const allowedTypes = new Set(['Post-Surgery Recovery', 'Illness Recovery', 'Injury Recovery', 'Chronic Condition', 'General Health', 'Custom']);
 const allowedInputs = new Set(['number', 'scale', 'boolean']);
 const allowedDirections = new Set(['higher', 'lower', 'neutral']);
@@ -21,13 +21,13 @@ const blankWomenHealth = () => ({ setupComplete: false, regularity: '', goals: [
 const blankProfile = key => ({ ownerKey: key, plans: [], history: [], careCircle: [], womensHealth: blankWomenHealth() });
 const json = value => value?.toObject ? value.toObject() : structuredClone(value);
 
-async function loadProfile(key) {
+export async function loadProfile(key) {
   if (databaseMode === 'mongo') return HealthProfile.findOneAndUpdate({ ownerKey: key }, { $setOnInsert: { ownerKey: key } }, { new: true, upsert: true });
   if (!memoryProfiles.has(key)) memoryProfiles.set(key, blankProfile(key));
   return memoryProfiles.get(key);
 }
 
-async function saveProfile(profile) {
+export async function saveProfile(profile) {
   if (databaseMode === 'mongo') return profile.save();
   memoryProfiles.set(profile.ownerKey, profile);
   return profile;
@@ -77,6 +77,60 @@ router.use(requireAuth, (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try { res.json({ success: true, data: json(await loadProfile(req.ownerKey)) }); } catch (error) { next(error); }
+});
+
+const cleanEmergencyList = value => cleanList(value, 12, 160);
+const cleanEmergencyProfile = body => ({
+  enabled: body.enabled === true,
+  displayName: clean(body.displayName, 100),
+  bloodGroup: allowedBloodGroups.has(clean(body.bloodGroup, 10)) ? clean(body.bloodGroup, 10) : '',
+  allergies: cleanEmergencyList(body.allergies),
+  importantMedicines: cleanEmergencyList(body.importantMedicines),
+  criticalConditions: cleanEmergencyList(body.criticalConditions),
+  emergencyContact: { name: clean(body.emergencyContact?.name, 100), relationship: clean(body.emergencyContact?.relationship, 60), phone: clean(body.emergencyContact?.phone, 30) },
+  share: { name: body.share?.name === true, bloodGroup: body.share?.bloodGroup === true, allergies: body.share?.allergies === true, medicines: body.share?.medicines === true, conditions: body.share?.conditions === true, emergencyContact: body.share?.emergencyContact === true }
+});
+export const generateEmergencyToken = () => randomBytes(32).toString('base64url');
+const loadEmergencyOwnerProfile = key => databaseMode === 'mongo'
+  ? HealthProfile.findOneAndUpdate({ ownerKey: key }, { $setOnInsert: { ownerKey: key } }, { new: true, upsert: true }).select('+emergencyProfile.publicToken')
+  : loadProfile(key);
+
+router.get('/emergency-profile', async (req, res, next) => {
+  try {
+    const profile = await loadEmergencyOwnerProfile(req.ownerKey), emergency = profile.emergencyProfile?.toObject?.() || profile.emergencyProfile || null, token = emergency?.publicToken;
+    const medicines = (profile.history || []).filter(item => item.category === 'Medicine' && !item.patientProfileId && item.status?.toLowerCase() !== 'previous').map(item => item.title);
+    res.json({ success: true, data: { profile: emergency ? { ...emergency, publicToken: undefined, hasToken: Boolean(token) } : null, token, medicines } });
+  } catch (error) { next(error); }
+});
+
+router.put('/emergency-profile', async (req, res, next) => {
+  try {
+    const profile = await loadEmergencyOwnerProfile(req.ownerKey), currentToken = profile.emergencyProfile?.publicToken;
+    profile.emergencyProfile = { ...cleanEmergencyProfile(req.body || {}), publicToken: currentToken || generateEmergencyToken() };
+    await saveProfile(profile);
+    res.json({ success: true, data: { enabled: profile.emergencyProfile.enabled, hasToken: true, token: profile.emergencyProfile.publicToken } });
+  } catch (error) {
+    if (error?.name === 'ValidationError') return res.status(400).json({ success: false, message: 'Please check the Emergency Profile fields and try again.' });
+    if (error?.code === 11000) return res.status(409).json({ success: false, message: 'A secure QR could not be created. Please try generating it again.' });
+    next(error);
+  }
+});
+
+router.post('/emergency-profile/regenerate', async (req, res, next) => {
+  try {
+    const profile = await loadEmergencyOwnerProfile(req.ownerKey);
+    if (!profile.emergencyProfile) return res.status(400).json({ success: false, message: 'Create your Emergency Profile first.' });
+    profile.emergencyProfile.publicToken = generateEmergencyToken(); profile.emergencyProfile.enabled = true;
+    await saveProfile(profile); res.json({ success: true, data: { enabled: true, hasToken: true, token: profile.emergencyProfile.publicToken } });
+  } catch (error) { next(error); }
+});
+
+router.post('/emergency-profile/disable', async (req, res, next) => {
+  try {
+    const profile = await loadEmergencyOwnerProfile(req.ownerKey);
+    if (profile.emergencyProfile) { profile.emergencyProfile.enabled = false; await saveProfile(profile); }
+    res.json({ success: true, data: { enabled: false } });
+  } catch (error) { next(error); }
 });
 
 router.post('/care-circle', async (req, res, next) => {
