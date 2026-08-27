@@ -313,6 +313,7 @@ export default function App() {
   const [text, setText]             = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const [processing, setProcessing] = useState(false);
+  const [consultError, setConsultError] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [online, setOnline]         = useState(navigator.onLine);
@@ -358,6 +359,7 @@ export default function App() {
   const doConsultationStep = async (value) => {
     if (!value.trim()) return;
     setProcessing(true);
+    setConsultError("");
     setText("");
     const newHistory = [...chatHistory, { role: "user", parts: [{ text: value }] }];
     setChatHistory(newHistory);
@@ -372,8 +374,13 @@ export default function App() {
       tts.speak(result.spokenResponse, language, () => {
         if (!result.isFinalVerdict) record(true);
       });
-    } catch {
+    } catch (err) {
       setProcessing(false);
+      setConsultError(
+        err?.response?.data?.message ||
+        err?.message ||
+        "AI consultation failed. Please check your connection and try again."
+      );
     }
   };
 
@@ -419,7 +426,8 @@ export default function App() {
   };
 
   // Shared page props
-  const dashProps = { language, setLanguage, triage, geo, voice, processing, text, setText, record, showVoice, doConsultationStep, navigate };
+  const dashProps = { language, setLanguage, triage, geo, voice, processing, consultError, text, setText, record, showVoice, doConsultationStep, navigate };
+
 
   return (
     <div className="app-shell">

@@ -8,12 +8,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+// Only confirmed-available models — others return 404 from the Gemini API.
 const candidateModels = [
   "gemini-3.6-flash",
-  "gemini-3.6-flash-latest",
-  "gemini-3.0-flash",
-  "gemini-flash-latest"
 ];
+
 
 export async function simplifyMedicalDocument(fileBuffer, mimeType = "image/png", language = "English") {
   const apiKey = (process.env.GEMINI_API_KEY || "").trim();

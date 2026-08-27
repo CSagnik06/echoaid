@@ -58,7 +58,14 @@ router.use((error, _req, res, _next) => {
   res.status(500).json({ success: false, message: 'Medicine information could not be loaded.' });
 });
 
-export default router;
 router.post('/research', async (req, res, next) => {
-  try { const name = String(req.body?.name || '').trim(); if (!name) return res.status(400).json({ success: false, message: 'Enter a medicine name.' }); if (name.length > 120) return res.status(400).json({ success: false, message: 'Keep the medicine name under 120 characters.' }); res.json({ success: true, data: await researchMedicine(name) }); } catch (error) { next(error); }
+  try {
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ success: false, message: 'Enter a medicine name.' });
+    if (name.length > 120) return res.status(400).json({ success: false, message: 'Keep the medicine name under 120 characters.' });
+    res.json({ success: true, data: await researchMedicine(name) });
+  } catch (error) { next(error); }
 });
+
+export default router;
+

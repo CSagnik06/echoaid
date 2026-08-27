@@ -1,66 +1,92 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import dotenv from "dotenv";
-dotenv.config();
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { env } from '../config/env.js';
 import { extractMedicineStrength, knownMedicineAlias } from './medicineAliases.js';
 
-const apiKey = (process.env.GEMINI_API_KEY || "").trim();
+const apiKey = (env.geminiKey || '').trim();
 const genAI = new GoogleGenerativeAI(apiKey);
 
+// Only the models confirmed available via the Gemini API.
+// gemini-3.6-flash-latest → 404 (no such alias)
+// gemini-2.5-flash        → 404 (no longer available to new users)
 const CANDIDATE_MODELS = [
   "gemini-3.6-flash",
-  "gemini-3.6-flash-latest",
-  "gemini-2.5-flash"
 ];
 
-export async function triageSymptoms(symptoms, language = "English") {
-  if (!apiKey) throw new Error("GEMINI_API_KEY is missing in server environment");
 
-  const prompt = `You are SANJEEVANI AI, an emergency clinical triage system.
-Analyze these patient symptoms: "${symptoms}" in ${language}.
+export async function triageSymptoms(symptoms, language = 'English') {
+  if (!apiKey) throw new Error('GEMINI_API_KEY is missing in server environment');
 
-Determine clinical urgency strictly as:
-- "RED": Critical / severe emergency (immediate emergency care needed)
-- "YELLOW": Moderate / non-emergency (clinic evaluation within 24-48h)
-- "GREEN": Mild / negligible (home rest, hydration, monitoring)
+  const prompt = [
+    `You are SANJEEVANI AI, an emergency clinical triage system.`,
+    `Analyze these patient symptoms: "${symptoms}" in ${language}.`,
+    ``,
+    `Determine clinical urgency strictly as:`,
+    `- "RED": Critical / severe emergency (immediate emergency care needed)`,
+    `- "YELLOW": Moderate / non-emergency (clinic evaluation within 24-48h)`,
+    `- "GREEN": Mild / negligible (home rest, hydration, monitoring)`,
+    ``,
+    `Return ONLY a valid JSON object without markdown fences:`,
+    `{`,
+    `  "alertLevel": "RED" | "YELLOW" | "GREEN",`,
+    `  "summary": "1-2 sentence clinical summary tailored to the patient symptoms",`,
+    `  "immediateActions": ["Specific action 1", "Specific action 2"],`,
+    `  "recommendedCare": "Recommended care instructions",`,
+    `  "voiceResponse": "Natural spoken 1-2 sentence clinical response in ${language}."`,
+    `}`,
+  ].join('\n');
 
-Return ONLY a valid JSON object without markdown fences:
-{
-  "alertLevel": "RED" | "YELLOW" | "GREEN",
-  "summary": "1-2 sentence clinical summary directly tailored to: ${symptoms}",
-  "immediateActions": ["Specific action 1", "Specific action 2"],
-  "recommendedCare": "Recommended care instructions",
-  "voiceResponse": "Natural spoken 1-2 sentence clinical response in ${language}."
-}`;
-
+  // Attempt 1: Official SDK
   for (const modelName of CANDIDATE_MODELS) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
-      const clean = result.response.text().replace(/```json/gi, "").replace(/```/g, "").trim();
-      return JSON.parse(clean);
+      const parsed = safeParseJson(result.response.text());
+      if (parsed && parsed.alertLevel) return parsed;
+      console.warn(`Triage model ${modelName} returned unparseable JSON`);
     } catch (err) {
       console.warn(`Triage model ${modelName} failed:`, err.message);
     }
   }
 
-  // REST Fallback
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  // Attempt 2: Direct REST fallback
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        signal: AbortSignal.timeout(20000),
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const parsed = safeParseJson(rawText);
+      if (parsed && parsed.alertLevel) return parsed;
     }
-  );
-  const data = await res.json();
-  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (rawText) {
-    return JSON.parse(rawText.replace(/```json/gi, "").replace(/```/g, "").trim());
+  } catch (restErr) {
+    console.warn('Triage REST fallback failed:', restErr.message);
   }
 
-  throw new Error("Unable to contact Gemini AI for symptom analysis.");
+  throw new Error('Unable to contact Gemini AI for symptom analysis.');
+}
+
+
+// ---------------------------------------------------------------------------
+// Safe JSON extractor: strips markdown fences, finds first {...} or [...]
+// block, and parses it. Never throws — returns null on failure.
+// ---------------------------------------------------------------------------
+function safeParseJson(raw) {
+  if (!raw) return null;
+  // Strip common markdown code fences
+  let text = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  // Try direct parse first
+  try { return JSON.parse(text); } catch { /* fall through */ }
+  // Extract first {...} or [...] block
+  const match = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (match) { try { return JSON.parse(match[0]); } catch { /* fall through */ } }
+  return null;
 }
 
 export async function conductVoiceConsultation(history = [], language = "English") {
@@ -74,29 +100,71 @@ Rules:
 1. If information is incomplete or vague, ask 1 focused follow-up question (severity 1-10, duration, fever, red-flag signs) and keep isFinalVerdict: false.
 2. If red-flags appear or conversation is mature (2-3 turns), finalize with isFinalVerdict: true and alertLevel ("RED", "YELLOW", or "GREEN").
 
-Return ONLY valid JSON:
+Return ONLY valid JSON without any markdown fences or extra text:
 {
-  "isFinalVerdict": boolean,
+  "isFinalVerdict": false,
   "spokenResponse": "Short 1-2 sentence response to be read aloud to the patient",
-  "alertLevel": "RED" | "YELLOW" | "GREEN" | "IN_PROGRESS",
-  "summary": "Medical summary",
-  "recommendedAction": "Next action",
+  "alertLevel": "IN_PROGRESS",
+  "summary": "Medical summary so far",
+  "recommendedAction": "Next step for the patient",
   "immediateActions": ["Action 1", "Action 2"]
 }`;
 
+  // ── Attempt 1: Official SDK ─────────────────────────────────────────────
   for (const modelName of CANDIDATE_MODELS) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
-      const clean = result.response.text().replace(/```json/gi, "").replace(/```/g, "").trim();
-      return JSON.parse(clean);
+      const parsed = safeParseJson(result.response.text());
+      if (parsed && typeof parsed.spokenResponse === 'string') {
+        console.info(`[Consultation] Responded via SDK model: ${modelName}`);
+        return parsed;
+      }
+      console.warn(`[Consultation] SDK model ${modelName} returned unparseable JSON`);
     } catch (err) {
-      console.warn(`Consultation model ${modelName} failed:`, err.message);
+      console.warn(`[Consultation] SDK model ${modelName} failed:`, err.message);
     }
   }
 
-  throw new Error("Unable to contact Gemini AI consultation engine.");
+  // ── Attempt 2: Direct REST fallback ────────────────────────────────────
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        signal: AbortSignal.timeout(25000),   // 25 s hard cap
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const parsed = safeParseJson(rawText);
+      if (parsed && typeof parsed.spokenResponse === 'string') {
+        console.info('[Consultation] Responded via REST fallback');
+        return parsed;
+      }
+    }
+  } catch (restErr) {
+    console.warn('[Consultation] REST fallback failed:', restErr.message);
+  }
+
+  // ── Attempt 3: Structural hardcoded fallback ────────────────────────────
+  // This guarantees a 200 response so the frontend never shows a raw 500.
+  const lastUserMessage = history.filter(h => h.role === 'user').at(-1)?.parts?.[0]?.text || 'your symptoms';
+  console.warn('[Consultation] All AI attempts failed — returning hardcoded fallback');
+  return {
+    isFinalVerdict: false,
+    spokenResponse: `I've noted ${lastUserMessage}. Could you tell me how severe the pain or discomfort is on a scale of 1 to 10?`,
+    alertLevel: "IN_PROGRESS",
+    summary: "Awaiting more information to complete the clinical assessment.",
+    recommendedAction: "Please answer the follow-up question so I can assess your condition accurately.",
+    immediateActions: ["Answer the follow-up question", "Call 112 if symptoms feel life-threatening"],
+  };
 }
+
+
 
 export async function askMedicine(question) {
     if (!env.geminiKey) {

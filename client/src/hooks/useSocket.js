@@ -8,7 +8,8 @@ function useSocket(onAlert) {
       reconnection: true,
       reconnectionAttempts: 5,
       timeout: 4e3,
-      transports: ["polling", "websocket"],
+      transports: ["websocket", "polling"],
+
       autoConnect: true
     });
     socket.on("connect", () => setConnected(true));
