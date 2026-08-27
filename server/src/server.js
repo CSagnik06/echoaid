@@ -1,4 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
+
+console.log("Gemini Key loaded:", process.env.GEMINI_API_KEY ? `${process.env.GEMINI_API_KEY.slice(0, 6)}...` : "MISSING");
+
 import cors from 'cors';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';

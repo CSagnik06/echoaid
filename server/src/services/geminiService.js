@@ -9,7 +9,7 @@ const genAI = new GoogleGenerativeAI(apiKey);
 // gemini-3.6-flash-latest → 404 (no such alias)
 // gemini-2.5-flash        → 404 (no longer available to new users)
 const CANDIDATE_MODELS = [
-  "gemini-3.6-flash",
+  "gemini-1.5-flash",
 ];
 
 
@@ -51,7 +51,7 @@ export async function triageSymptoms(symptoms, language = 'English') {
   // Attempt 2: Direct REST fallback
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,7 +129,7 @@ Return ONLY valid JSON without any markdown fences or extra text:
   // ── Attempt 2: Direct REST fallback ────────────────────────────────────
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -186,7 +186,7 @@ Do not add a disclaimer; the interface displays one separately.
 User question: ${question}`;
 
     try {
-        const response = await ai.getGenerativeModel({ model: 'gemini-3.6-flash' }).generateContent(instruction);
+        const response = await ai.getGenerativeModel({ model: 'gemini-1.5-flash' }).generateContent(instruction);
         const answer = response.response.text().trim();
         if (!answer) throw new Error('EMPTY_MEDICINE_AI_RESPONSE');
         return answer;
@@ -209,7 +209,7 @@ export async function normalizeMedicineName(value) {
 Use an empty string for any field that cannot be determined reliably. If the query is fake or unknown, leave genericName empty. User query: ${JSON.stringify(originalQuery)}`;
     try {
         const ai = new GoogleGenerativeAI(env.geminiKey);
-        const response = await ai.getGenerativeModel({ model: 'gemini-3.6-flash', generationConfig: { temperature: 0 } }).generateContent(prompt);
+        const response = await ai.getGenerativeModel({ model: 'gemini-1.5-flash', generationConfig: { temperature: 0 } }).generateContent(prompt);
         const raw = response.response.text().replace(/```json|```/g, '').trim();
         const parsed = JSON.parse(raw);
         const confidence = ['high', 'medium', 'low'].includes(parsed.confidence) ? parsed.confidence : 'low';
@@ -228,7 +228,7 @@ export async function researchMedicine(name) {
 If identity is uncertain return {"found":false,"confidence":"low","searchedName":"","message":"I could not confidently identify this medicine. Please check the spelling or packaging."}. Use short factual points. Do not diagnose, prescribe, recommend starting/stopping, or give personalized doses. Omit uncertain facts. Input: ${JSON.stringify(name)}`;
     try {
         const ai = new GoogleGenerativeAI(env.geminiKey);
-        const response = await ai.getGenerativeModel({ model: 'gemini-3.6-flash', generationConfig: { temperature: 0, responseMimeType: 'application/json' } }).generateContent(prompt);
+        const response = await ai.getGenerativeModel({ model: 'gemini-1.5-flash', generationConfig: { temperature: 0, responseMimeType: 'application/json' } }).generateContent(prompt);
         const data = JSON.parse(response.response.text().replace(/```json|```/g, '').trim());
         const cleanText = (value, max = 500) => typeof value === 'string' ? value.trim().slice(0, max) : '';
         const cleanArray = value => Array.isArray(value) ? value.map(item => cleanText(item, 300)).filter(Boolean).slice(0, 8) : [];

@@ -90,7 +90,7 @@ const features = [
 // Page components — defined inline to share App-level state via props
 // ---------------------------------------------------------------------------
 
-function DashboardPage({ language, setLanguage, triage, geo, voice, processing, text, setText, record, showVoice, doConsultationStep, navigate }) {
+function DashboardPage({ language, setLanguage, triage, geo, voice, processing, consultError, text, setText, record, showVoice, doConsultationStep, navigate }) {
   return (
     <>
       <section className="hero-section">
@@ -145,6 +145,7 @@ function DashboardPage({ language, setLanguage, triage, geo, voice, processing, 
             </button>
           </div>
           {voice.error && <small className="error">{voice.error}</small>}
+          {consultError && <small className="error">{consultError}</small>}
         </div>
       </section>
 
@@ -174,7 +175,7 @@ function DashboardPage({ language, setLanguage, triage, geo, voice, processing, 
   );
 }
 
-function VoiceCheckPage({ language, setLanguage, triage, geo, voice, processing, text, setText, record, showVoice, doConsultationStep, navigate }) {
+function VoiceCheckPage({ language, setLanguage, triage, geo, voice, processing, consultError, text, setText, record, showVoice, doConsultationStep, navigate }) {
   // Voice check shares the same UI as dashboard — reuse
   return (
     <DashboardPage
@@ -184,6 +185,7 @@ function VoiceCheckPage({ language, setLanguage, triage, geo, voice, processing,
       geo={geo}
       voice={voice}
       processing={processing}
+      consultError={consultError}
       text={text}
       setText={setText}
       record={record}
