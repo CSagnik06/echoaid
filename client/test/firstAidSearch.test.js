@@ -14,3 +14,5 @@ test('burn hand ranks Burns first', () => assert.equal(first('burn hand'), 'Burn
 test('hot water skin ranks Burns first', () => assert.equal(first('hot water skin'), 'Burns & Scalds'));
 test('random nonsense returns no result', () => assert.equal(first('asdfgh123'), undefined));
 test('clearing search restores every guide', () => assert.equal(searchFirstAid(FIRST_AID, '', FIRST_AID_SEARCH_ALIASES).length, FIRST_AID.length));
+
+for (const query of ['CH', 'CHO', 'CHA', 'CHAKING', 'CHOCKING', 'CHOKNG', 'CHOKIN', 'CHOKING']) test(`${query} ranks Choking first`, () => assert.equal(first(query), 'Choking (Conscious & Unconscious)'));

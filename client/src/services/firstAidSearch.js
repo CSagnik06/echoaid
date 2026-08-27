@@ -25,9 +25,29 @@ function tokenScore(term, words, weights) {
   for (const word of words) {
     if (word === term) best = Math.max(best, weights.exact);
     else if (word.startsWith(term)) best = Math.max(best, weights.prefix);
+    else if (term.length >= 3 && word.length >= term.length) {
+      const tolerance = term.length <= 5 ? 1 : 2, prefixDistance = editDistance(term, word.slice(0, term.length));
+      if (prefixDistance <= tolerance) best = Math.max(best, Math.round(weights.prefix * (1 - prefixDistance / (term.length + 1))));
+    }
     else best = Math.max(best, fuzzyScore(term, word, weights.fuzzy));
   }
   return best;
+}
+
+const commonPrefixLength = (left, right) => { const a = normalize(left), b = normalize(right); let index = 0; while (index < a.length && index < b.length && a[index] === b[index]) index += 1; return index; };
+
+function matchDetails(guide, query, aliases) {
+  const q = normalize(query), titleWords = normalize(guide.title).split(" "), candidates = [...titleWords, ...aliases.flatMap(alias => normalize(alias).split(" "))].filter(Boolean);
+  if (!q) return { matchType: "all", prefixLength: 0 };
+  if (normalize(guide.title) === q || titleWords.includes(q)) return { matchType: "exact", prefixLength: q.length };
+  const prefix = titleWords.find(word => word.startsWith(q));
+  if (prefix) return { matchType: "prefix", prefixLength: q.length };
+  if (q.length >= 3) {
+    const tolerance = q.length <= 5 ? 1 : 2;
+    const fuzzy = candidates.map(word => ({ word, distance: word.length >= q.length ? editDistance(q, word.slice(0, q.length)) : editDistance(q, word) })).filter(item => item.distance <= tolerance).sort((a, b) => a.distance - b.distance)[0];
+    if (fuzzy) return { matchType: "fuzzy", prefixLength: fuzzy.word === titleWords[0] ? commonPrefixLength(q, fuzzy.word) : 0 };
+  }
+  return { matchType: "keyword", prefixLength: 0 };
 }
 
 export function scoreFirstAidGuide(guide, query, aliases = []) {
@@ -35,9 +55,10 @@ export function scoreFirstAidGuide(guide, query, aliases = []) {
   const title = normalize(guide.title), titleWords = title.split(" "), aliasText = normalize(aliases.join(" ")), aliasWords = aliasText.split(" ").filter(Boolean);
   const description = normalize([guide.category, guide.warning, ...(guide.steps || [])].join(" ")), descriptionWords = description.split(" ").filter(Boolean);
   if (title === q || compact(title) === compact(q)) return 1000;
+  if (titleWords.includes(q)) return 950;
   let score = 0;
-  if (title.startsWith(q) || compact(title).startsWith(compact(q))) score += 850;
-  if (aliasText.split(" ").includes(q) || aliases.some(alias => normalize(alias) === q)) score += 650;
+  if (title.startsWith(q) || compact(title).startsWith(compact(q)) || titleWords.some(word => word.startsWith(q))) return 850;
+  if (aliasText.split(" ").includes(q) || aliases.some(alias => normalize(alias) === q)) return 700;
   if (aliases.some(alias => normalize(alias).includes(q))) score += 180;
   const terms = q.split(" "), matched = terms.map(term => {
     const titleScore = tokenScore(term, titleWords, { exact: 150, prefix: 125, fuzzy: 115 });
@@ -50,6 +71,10 @@ export function scoreFirstAidGuide(guide, query, aliases = []) {
 }
 
 export function searchFirstAid(guides, query, aliasesByTitle = {}) {
-  if (!normalize(query)) return guides;
-  return guides.map((guide, index) => ({ guide, index, score: scoreFirstAidGuide(guide, query, aliasesByTitle[guide.title] || []) })).filter(result => result.score >= 28).sort((left, right) => right.score - left.score || left.index - right.index).map(result => result.guide);
+  return rankFirstAid(guides, query, aliasesByTitle).map(result => result.guide);
+}
+
+export function rankFirstAid(guides, query, aliasesByTitle = {}) {
+  if (!normalize(query)) return guides.map((guide, index) => ({ guide, index, score: 1, matchType: "all", prefixLength: 0 }));
+  return guides.map((guide, index) => { const aliases = aliasesByTitle[guide.title] || []; return { guide, index, score: scoreFirstAidGuide(guide, query, aliases), ...matchDetails(guide, query, aliases) }; }).filter(result => result.score >= 28).sort((left, right) => right.score - left.score || left.index - right.index);
 }
