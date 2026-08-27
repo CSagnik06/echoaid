@@ -5,49 +5,44 @@ dotenv.config();
 const apiKey = (process.env.GEMINI_API_KEY || "").trim();
 const genAI = new GoogleGenerativeAI(apiKey);
 
-const candidateModels = [
+const CANDIDATE_MODELS = [
   "gemini-3.6-flash",
   "gemini-3.6-flash-latest",
-  "gemini-3.0-flash"
+  "gemini-2.5-flash"
 ];
 
 export async function triageSymptoms(symptoms, language = "English") {
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing in server environment");
-  }
+  if (!apiKey) throw new Error("GEMINI_API_KEY is missing in server environment");
 
-  const prompt = `You are SANJEEVANI AI, an emergency healthcare assistant.
-Analyze these specific patient symptoms: "${symptoms}" in language: ${language}.
+  const prompt = `You are SANJEEVANI AI, an emergency clinical triage system.
+Analyze these patient symptoms: "${symptoms}" in ${language}.
 
-Evaluate the exact severity and urgency:
-- "RED": Severe trauma, heart issue, severe breathing difficulty, critical emergency.
-- "YELLOW": Moderate symptoms, infection, persistent pain requiring clinic visit in 24-48h.
-- "GREEN": Mild, temporary, self-care / rest / hydration.
+Determine clinical urgency strictly as:
+- "RED": Critical / severe emergency (immediate emergency care needed)
+- "YELLOW": Moderate / non-emergency (clinic evaluation within 24-48h)
+- "GREEN": Mild / negligible (home rest, hydration, monitoring)
 
-Respond ONLY with a valid JSON object matching this schema without code blocks:
+Return ONLY a valid JSON object without markdown fences:
 {
   "alertLevel": "RED" | "YELLOW" | "GREEN",
-  "summary": "1-2 sentence specific clinical summary for: ${symptoms}",
-  "immediateActions": ["Action 1 for these exact symptoms", "Action 2"],
-  "recommendedCare": "Specific medical advice for these symptoms",
-  "voiceResponse": "Natural spoken 1-2 sentence response explaining condition in ${language}."
+  "summary": "1-2 sentence clinical summary directly tailored to: ${symptoms}",
+  "immediateActions": ["Specific action 1", "Specific action 2"],
+  "recommendedCare": "Recommended care instructions",
+  "voiceResponse": "Natural spoken 1-2 sentence clinical response in ${language}."
 }`;
 
-  const modelCandidates = ["gemini-3.6-flash", "gemini-3.6-flash-latest", "gemini-2.5-flash"];
-
-  for (const modelName of modelCandidates) {
+  for (const modelName of CANDIDATE_MODELS) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      const cleanJson = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-      return JSON.parse(cleanJson);
-    } catch (e) {
-      console.warn(`Model ${modelName} triage failed:`, e.message);
+      const clean = result.response.text().replace(/```json/gi, "").replace(/```/g, "").trim();
+      return JSON.parse(clean);
+    } catch (err) {
+      console.warn(`Triage model ${modelName} failed:`, err.message);
     }
   }
 
-  // REST API Direct Fallback
+  // REST Fallback
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
     {
@@ -59,45 +54,43 @@ Respond ONLY with a valid JSON object matching this schema without code blocks:
   const data = await res.json();
   const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (rawText) {
-    const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-    return JSON.parse(cleanJson);
+    return JSON.parse(rawText.replace(/```json/gi, "").replace(/```/g, "").trim());
   }
 
-  throw new Error("Gemini API call failed across all endpoints");
+  throw new Error("Unable to contact Gemini AI for symptom analysis.");
 }
 
 export async function conductVoiceConsultation(history = [], language = "English") {
-  if (!apiKey) throw new Error("GEMINI_API_KEY missing");
+  if (!apiKey) throw new Error("GEMINI_API_KEY is missing in server environment");
 
-  const prompt = `You are SANJEEVANI AI Doctor conducting a live spoken consultation in ${language}.
-Analyze the dialogue history:
+  const prompt = `You are SANJEEVANI AI Doctor conducting an interactive medical consultation in ${language}.
+Dialogue history:
 ${JSON.stringify(history, null, 2)}
 
-Protocol:
-1. If the patient shares vague or incomplete symptoms, ask 1 concise follow-up question (e.g. pain severity 1-10, swelling, inability to bear weight, duration). Keep isFinalVerdict: false.
-2. If red flags or severe trauma appear, set isFinalVerdict: true and alertLevel: "RED".
-3. Once clear or after 2-3 turns, set isFinalVerdict: true with alertLevel ("RED", "YELLOW", or "GREEN").
+Rules:
+1. If information is incomplete or vague, ask 1 focused follow-up question (severity 1-10, duration, fever, red-flag signs) and keep isFinalVerdict: false.
+2. If red-flags appear or conversation is mature (2-3 turns), finalize with isFinalVerdict: true and alertLevel ("RED", "YELLOW", or "GREEN").
 
-Return strictly JSON:
+Return ONLY valid JSON:
 {
   "isFinalVerdict": boolean,
-  "spokenResponse": "Short natural 1-2 sentences to read aloud to patient",
+  "spokenResponse": "Short 1-2 sentence response to be read aloud to the patient",
   "alertLevel": "RED" | "YELLOW" | "GREEN" | "IN_PROGRESS",
-  "summary": "Clinical summary",
+  "summary": "Medical summary",
   "recommendedAction": "Next action",
-  "immediateActions": ["Step 1", "Step 2"]
+  "immediateActions": ["Action 1", "Action 2"]
 }`;
 
-  for (const modelName of candidateModels) {
+  for (const modelName of CANDIDATE_MODELS) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
-      const cleanJson = result.response.text().replace(/```json/gi, "").replace(/```/g, "").trim();
-      return JSON.parse(cleanJson);
-    } catch (e) {
-      console.warn(`Consultation model ${modelName} failed:`, e.message);
+      const clean = result.response.text().replace(/```json/gi, "").replace(/```/g, "").trim();
+      return JSON.parse(clean);
+    } catch (err) {
+      console.warn(`Consultation model ${modelName} failed:`, err.message);
     }
   }
 
-  throw new Error("Failed to contact Gemini consultation model");
+  throw new Error("Unable to contact Gemini AI consultation engine.");
 }
