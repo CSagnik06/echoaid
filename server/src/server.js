@@ -1,4 +1,5 @@
 import 'dotenv/config';
+// trigger restart
 import express from 'express';
 
 console.log("Gemini Key loaded:", process.env.GEMINI_API_KEY ? `${process.env.GEMINI_API_KEY.slice(0, 6)}...` : "MISSING");
@@ -22,10 +23,16 @@ import { configureEmergencySocket } from './sockets/emergencySocket.js';
 // ---------------------------------------------------------------------------
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow same-machine origins (localhost / 127.0.0.1 on any port) and
-    // server-to-server calls (no Origin header).
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+      env.clientUrl
+    ];
     if (
       !origin ||
+      allowedOrigins.includes(origin) ||
       /^http:\/\/localhost(:\d+)?$/.test(origin) ||
       /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)
     ) {
@@ -73,16 +80,16 @@ app.use('/api/medicines', medicineRoutes);
 app.use((_q, r) => r.status(404).json({ success: false, message: 'Route not found' }));
 configureEmergencySocket(io);
 connectDb().finally(() => {
-  const server = http.listen(env.port, () => console.info(`Sanjeevani API running on ${env.port}`));
+  const port = process.env.PORT || env.port || 5000;
+  const server = http.listen(port, () => console.info(`Sanjeevani API running strictly on port ${port}`));
+  
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      const altPort = Number(env.port) + 1;
-      console.warn(`Port ${env.port} is busy, retrying on fallback port ${altPort}...`);
-      http.listen(altPort, () => {
-        console.info(`Sanjeevani API successfully started on fallback port ${altPort}`);
-      });
+      console.error(`FATAL: Port ${port} is already in use. Please kill the process using this port before starting.`);
+      process.exit(1);
     } else {
       console.error('Server error:', err);
+      process.exit(1);
     }
   });
 });

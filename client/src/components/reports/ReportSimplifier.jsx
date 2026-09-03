@@ -26,6 +26,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export function ReportSimplifier({ language = "English" }) {
   const [file, setFile] = useState(null);
   const [result, setResult] = useState("");
+  const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -52,6 +53,7 @@ export function ReportSimplifier({ language = "English" }) {
 
     setFile(selectedFile);
     setResult("");
+    setReportData(null);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
@@ -73,12 +75,19 @@ export function ReportSimplifier({ language = "English" }) {
     setError("");
 
     try {
-      const simplifiedText = await api.simplifyReport(file, language);
-      if (!simplifiedText || !String(simplifiedText).trim()) {
+      const resData = await api.simplifyReport(file, language);
+      if (!resData) {
         throw new Error("We couldn't generate a summary from this document. Please try a clearer report.");
       }
-      setResult(String(simplifiedText).trim());
+      const summaryText = typeof resData === "string" ? resData : (resData.simplifiedText || resData.summary || "");
+      if (!summaryText.trim()) {
+        throw new Error("We couldn't generate a summary from this document. Please try a clearer report.");
+      }
+      setResult(summaryText.trim());
+      setReportData(typeof resData === "object" ? resData : { summary: summaryText });
     } catch (err) {
+      setResult("");
+      setReportData(null);
       setError(err?.message || "Failed to process the document. Please try again.");
     } finally {
       setLoading(false);
@@ -89,18 +98,20 @@ export function ReportSimplifier({ language = "English" }) {
     event?.stopPropagation();
     if (loading) return;
     setFile(null);
+    setReportData(null);
     setError("");
   };
 
   const handleReset = () => {
     setResult("");
+    setReportData(null);
     setFile(null);
     setError("");
     setLoading(false);
   };
 
   const handleDownloadPDF = () => {
-    if (!result) return;
+    if (!result && !reportData) return;
 
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -109,91 +120,99 @@ export function ReportSimplifier({ language = "English" }) {
     const contentWidth = pageWidth - marginX * 2;
     let cursorY = 20;
 
-    // Header
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(17);
-    doc.setTextColor(20, 35, 40);
-    doc.text("SANJEEVANI - Medical Report Summary", marginX, cursorY);
-    cursorY += 8;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(110, 110, 110);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()} | Language: ${language}`, marginX, cursorY);
-    cursorY += 6;
-
-    doc.setDrawColor(225, 230, 230);
-    doc.line(marginX, cursorY, pageWidth - marginX, cursorY);
-    cursorY += 10;
-
-    // Clean markdown
-    const cleanText = result
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/###\s?/g, "")
-      .replace(/\r/g, "");
-
-    const rawLines = cleanText.split("\n");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10.5);
-    doc.setTextColor(65, 65, 65);
-    const lineHeight = 5.5;
-
-    const addPageIfNeeded = (requiredHeight = lineHeight) => {
+    const addPageIfNeeded = (requiredHeight = 6) => {
       if (cursorY + requiredHeight > pageHeight - 20) {
         doc.addPage();
         cursorY = 20;
       }
     };
 
-    rawLines.forEach((rawLine) => {
-      const line = rawLine.trim();
-      if (!line) {
-        cursorY += 3;
-        return;
-      }
+    // Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(17);
+    doc.setTextColor(30, 41, 59);
+    doc.text("SANJEEVANI - Medical Report Summary", marginX, cursorY);
+    cursorY += 7;
 
-      const isHeader = line.startsWith("📌") || line.startsWith("⚠️") || line.startsWith("💡") || line.startsWith("🩺");
-      if (isHeader) {
-        addPageIfNeeded(10);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11.5);
-        if (line.startsWith("⚠️")) {
-          doc.setTextColor(146, 64, 14);
-        } else if (line.startsWith("🩺")) {
-          doc.setTextColor(15, 118, 110);
-        } else if (line.startsWith("💡")) {
-          doc.setTextColor(67, 56, 202);
-        } else {
-          doc.setTextColor(20, 35, 40);
-        }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()} | Language: ${language} | Type: ${reportData?.detectedType || 'Clinical Summary'}`, marginX, cursorY);
+    cursorY += 6;
 
-        const headerLines = doc.splitTextToSize(line, contentWidth);
-        doc.text(headerLines, marginX, cursorY);
-        cursorY += headerLines.length * 6 + 3;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10.5);
-        doc.setTextColor(65, 65, 65);
-        return;
-      }
+    doc.setDrawColor(226, 232, 240);
+    doc.line(marginX, cursorY, pageWidth - marginX, cursorY);
+    cursorY += 10;
 
-      const wrappedLines = doc.splitTextToSize(line, contentWidth);
-      addPageIfNeeded(wrappedLines.length * lineHeight);
-      doc.text(wrappedLines, marginX, cursorY);
-      cursorY += wrappedLines.length * lineHeight + 1;
-    });
+    const printSectionHeader = (title, r = 30, g = 41, b = 59) => {
+      addPageIfNeeded(12);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(r, g, b);
+      doc.text(title, marginX, cursorY);
+      cursorY += 6;
+    };
+
+    const printBodyText = (text, r = 51, g = 65, b = 85) => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(r, g, b);
+      const lines = doc.splitTextToSize(text, contentWidth);
+      addPageIfNeeded(lines.length * 5 + 2);
+      doc.text(lines, marginX, cursorY);
+      cursorY += lines.length * 5 + 4;
+    };
+
+    // 1. Clinical Summary
+    const summaryText = reportData?.summary || result;
+    if (summaryText) {
+      printSectionHeader("Clinical Summary", 37, 99, 235);
+      printBodyText(summaryText);
+    }
+
+    // 2. Out-of-Range / Flagged Items
+    if (reportData?.abnormalParameters?.length > 0) {
+      printSectionHeader("Out-of-Range / Flagged Items", 220, 38, 38);
+      reportData.abnormalParameters.forEach((item) => {
+        const itemStr = typeof item === "object" ? `${item.parameter}: ${item.value} (${item.referenceRange || 'out of range'})` : item;
+        printBodyText(`• ${itemStr}`, 153, 27, 27);
+      });
+    }
+
+    // 3. Key Findings
+    if (reportData?.keyFindings?.length > 0) {
+      printSectionHeader("Key Findings", 22, 163, 74);
+      reportData.keyFindings.forEach((finding) => {
+        printBodyText(`• ${finding}`, 20, 83, 45);
+      });
+    }
+
+    // 4. Recommendations & Next Steps
+    if (reportData?.recommendations?.length > 0) {
+      printSectionHeader("Recommendations & Next Steps", 2, 132, 199);
+      reportData.recommendations.forEach((rec) => {
+        printBodyText(`• ${rec}`, 12, 74, 110);
+      });
+    }
+
+    // Fallback if structured arrays are absent
+    if (!reportData?.keyFindings?.length && !reportData?.abnormalParameters?.length && result && result !== summaryText) {
+      printSectionHeader("Additional Detailed Findings");
+      printBodyText(result);
+    }
 
     // Disclaimer
     cursorY += 4;
-    addPageIfNeeded(18);
-    doc.setFillColor(248, 250, 250);
-    doc.setDrawColor(220, 225, 225);
+    addPageIfNeeded(20);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
     const disclaimer = "Disclaimer: This AI-generated summary is for informational and educational purposes only and does not replace professional medical evaluation, diagnosis, or treatment. Always consult your healthcare provider.";
     const disclaimerLines = doc.splitTextToSize(disclaimer, contentWidth - 8);
     const boxHeight = disclaimerLines.length * 4.5 + 8;
     doc.roundedRect(marginX, cursorY, contentWidth, boxHeight, 2, 2, "FD");
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8.5);
-    doc.setTextColor(110, 110, 110);
+    doc.setTextColor(100, 116, 139);
     doc.text(disclaimerLines, marginX + 4, cursorY + 6);
 
     // Footer on every page
@@ -377,13 +396,15 @@ export function ReportSimplifier({ language = "English" }) {
       )}
 
       {error && (
-        <div className="report-reader-error">
-          <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: "2px" }} />
-          <div className="error-content">
-            <b>Something went wrong</b>
-            <p>{error}</p>
+        <div className="report-reader-error" style={{ background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "12px", padding: "16px 20px", margin: "20px 0", display: "flex", alignItems: "flex-start", gap: "12px" }}>
+          <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: "2px", color: "#e11d48" }} />
+          <div className="error-content" style={{ flex: 1 }}>
+            <b style={{ color: "#9f1239", fontSize: "0.95rem" }}>
+              Medical Document Validation Notice
+            </b>
+            <p style={{ margin: "4px 0 0 0", color: "#be123c", fontSize: "0.9rem", lineHeight: "1.5" }}>{error}</p>
           </div>
-          <button type="button" onClick={() => setError("")}>
+          <button type="button" onClick={() => setError("")} style={{ background: "transparent", border: 0, cursor: "pointer", color: "#9f1239" }}>
             <X size={16} />
           </button>
         </div>
@@ -405,11 +426,67 @@ export function ReportSimplifier({ language = "English" }) {
             </div>
           </div>
           
-          <div className="report-reader-result-content">
-            {renderFormattedText(result)}
+          <div className="report-reader-result-content" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            {/* Clinical Summary */}
+            <div style={{ background: "#f8fafc", borderRadius: "12px", padding: "20px", border: "1px solid #e2e8f0" }}>
+              <h3 style={{ margin: "0 0 10px 0", fontSize: "1.05rem", color: "#1e293b", display: "flex", alignItems: "center", gap: "8px" }}>
+                <Info size={18} style={{ color: "#2563eb" }} /> Clinical Summary
+              </h3>
+              <p style={{ margin: 0, color: "#334155", lineHeight: "1.6" }}>
+                {reportData?.summary || result}
+              </p>
+            </div>
+
+            {/* Abnormal Parameters / Alerts */}
+            {reportData?.abnormalParameters?.length > 0 && (
+              <div style={{ background: "#fef2f2", borderRadius: "12px", padding: "20px", border: "1px solid #fecaca" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: "1.05rem", color: "#991b1b", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <AlertTriangle size={18} style={{ color: "#dc2626" }} /> Out-of-Range / Flagged Items
+                </h3>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {reportData.abnormalParameters.map((item, idx) => (
+                    <div key={idx} style={{ background: "#ffffff", border: "1px solid #fca5a5", color: "#991b1b", padding: "8px 14px", borderRadius: "8px", fontSize: "0.9rem", fontWeight: "500", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#dc2626" }} />
+                      {typeof item === "object" ? `${item.parameter}: ${item.value} (${item.referenceRange || 'out of range'})` : item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Key Findings */}
+            {reportData?.keyFindings?.length > 0 && (
+              <div style={{ background: "#f0fdf4", borderRadius: "12px", padding: "20px", border: "1px solid #bbf7d0" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: "1.05rem", color: "#166534", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <CheckCircle2 size={18} style={{ color: "#16a34a" }} /> Key Findings
+                </h3>
+                <ul style={{ margin: 0, paddingLeft: "20px", color: "#14532d", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {reportData.keyFindings.map((finding, idx) => (
+                    <li key={idx} style={{ lineHeight: "1.5" }}>{finding}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {reportData?.recommendations?.length > 0 && (
+              <div style={{ background: "#f0f9ff", borderRadius: "12px", padding: "20px", border: "1px solid #bae6fd" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: "1.05rem", color: "#075985", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Stethoscope size={18} style={{ color: "#0284c7" }} /> Recommendations & Next Steps
+                </h3>
+                <ul style={{ margin: 0, paddingLeft: "20px", color: "#0c4a6e", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {reportData.recommendations.map((rec, idx) => (
+                    <li key={idx} style={{ lineHeight: "1.5" }}>{rec}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Fallback formatted text rendering if structured data is absent */}
+            {(!reportData?.keyFindings?.length && !reportData?.abnormalParameters?.length) && renderFormattedText(result)}
           </div>
           
-          <div className="report-reader-actions" style={{ display: "flex", gap: "12px", padding: "0 32px 32px", justifyContent: "flex-start" }}>
+          <div className="report-reader-actions" style={{ display: "flex", gap: "12px", padding: "20px 32px 32px", justifyContent: "flex-start" }}>
             <button 
               onClick={handleDownloadPDF}
               style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#ecfdf5", color: "#065f46", border: "1px solid #6ee7b7", padding: "8px 16px", borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}

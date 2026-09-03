@@ -50,14 +50,6 @@ router.get('/labels/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.use((error, _req, res, _next) => {
-  if (error.code === 'MEDICINE_AI_NOT_CONFIGURED') return res.status(503).json({ success: false, message: 'Medicine questions are not available right now.' });
-  if (error.code === 'MEDICINE_AI_UNAVAILABLE') return res.status(503).json({ success: false, message: "We couldn't get medicine information right now. Please try again." });
-  if (error.message === 'MEDICINE_PROVIDER_UNAVAILABLE') return res.status(503).json({ success: false, message: "Medicine information is temporarily unavailable. Please try again." });
-  console.error('Medicine information request failed:', error.message);
-  res.status(500).json({ success: false, message: 'Medicine information could not be loaded.' });
-});
-
 router.post('/research', async (req, res, next) => {
   try {
     const name = String(req.body?.name || '').trim();
@@ -65,6 +57,14 @@ router.post('/research', async (req, res, next) => {
     if (name.length > 120) return res.status(400).json({ success: false, message: 'Keep the medicine name under 120 characters.' });
     res.json({ success: true, data: await researchMedicine(name) });
   } catch (error) { next(error); }
+});
+
+router.use((error, _req, res, _next) => {
+  if (error.code === 'MEDICINE_AI_NOT_CONFIGURED') return res.status(503).json({ success: false, message: 'Medicine questions are not available right now.' });
+  if (error.code === 'MEDICINE_AI_UNAVAILABLE') return res.status(503).json({ success: false, message: "We couldn't get medicine information right now. Please try again." });
+  if (error.message === 'MEDICINE_PROVIDER_UNAVAILABLE') return res.status(503).json({ success: false, message: "Medicine information is temporarily unavailable. Please try again." });
+  console.error('Medicine information request failed:', error.message);
+  res.status(500).json({ success: false, message: 'Medicine information could not be loaded.' });
 });
 
 export default router;

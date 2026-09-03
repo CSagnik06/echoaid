@@ -1,9 +1,17 @@
-import { useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 export function useVoiceSynthesis() {
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
   const speak = useCallback((text, language = "en-IN", onEnd = null) => {
-    if (!window.speechSynthesis) return;
+    if (!window.speechSynthesis) {
+      if (onEnd) onEnd();
+      return;
+    }
+
+    // Always cancel active speech before starting new speech to prevent voice queue lockups
     window.speechSynthesis.cancel();
+    setIsSpeaking(true);
     
     // Map internal languages to BCP-47 for synthesis
     const langMap = {
@@ -16,18 +24,35 @@ export function useVoiceSynthesis() {
       "Tamil": "ta-IN"
     };
     
-    const bcp47 = langMap[language] || "en-IN";
+    const bcp47 = langMap[language] || language || "en-IN";
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = bcp47;
-    if (onEnd) {
-      utterance.onend = onEnd;
+
+    const cleanup = () => {
+      setIsSpeaking(false);
+      if (onEnd) onEnd();
+    };
+
+    utterance.onend = cleanup;
+    utterance.onerror = (err) => {
+      console.warn("[SpeechSynthesis Error]:", err);
+      cleanup();
+    };
+
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.error("[SpeechSynthesis Exception]:", err);
+      cleanup();
     }
-    window.speechSynthesis.speak(utterance);
   }, []);
   
   const stop = useCallback(() => {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
   }, []);
 
   useEffect(() => {
@@ -36,5 +61,6 @@ export function useVoiceSynthesis() {
     };
   }, [stop]);
 
-  return { speak, stop };
+  return { speak, stop, isSpeaking };
 }
+

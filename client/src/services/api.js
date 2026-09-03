@@ -1,4 +1,4 @@
-﻿import axios from "axios";
+import axios from "axios";
 import { FIRST_AID } from "./offlineStorage";
 
 const client = axios.create({
@@ -164,11 +164,16 @@ const api = {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 60000,
       })
-      .then((r) => r.data?.data?.simplifiedText || r.data?.simplifiedText)
+      .then((r) => r.data?.data || r.data)
       .catch((e) => {
-        throw new Error(
-          e.response?.data?.error || e.response?.data?.message || e.message || "Failed to analyze document."
+        const err = new Error(
+          e.response?.data?.message || e.response?.data?.error || e.message || "Failed to analyze document."
         );
+        if (e.response?.status === 422) {
+          err.status = 422;
+          err.detectedType = e.response?.data?.detectedType || "Non-medical Document";
+        }
+        throw err;
       });
   },
 
