@@ -13,6 +13,21 @@ const FIRST_AID = [
   { title: "Asthma Attack & Anaphylaxis", category: "Respiratory emergency", urgency: "RED", warning: "Call 112 immediately if there is swelling of the face/throat or difficulty breathing.", steps: ["Asthma: Help them sit upright and use their reliever inhaler (blue).", "Anaphylaxis: If they have an adrenaline auto-injector (EpiPen), help them use it.", "If no improvement after 5 minutes, give a second dose of adrenaline if available."] },
   { title: "Diabetic Shock (Hypoglycemia)", category: "Metabolic emergency", urgency: "YELLOW", warning: "If the person becomes unconscious, do not put anything in their mouth.", steps: ["If conscious, give them 15-20 grams of fast-acting carbohydrates (fruit juice, candy).", "Wait 15 minutes and recheck symptoms. Give more carbs if no improvement.", "Once they feel better, give them a longer-acting carbohydrate snack like a sandwich."] }
 ];
+const FIRST_AID_SEARCH_ALIASES = {
+  "CPR (Adult & Infant)": ["cardiac arrest", "not breathing", "no pulse", "unresponsive", "unconscious", "baby", "infant"],
+  "Severe Bleeding & Tourniquets": ["bleeding", "blood", "heavy bleeding", "deep cut", "wound", "blood loss", "tourniquet"],
+  "Burns & Scalds": ["burn", "burned", "burning hand", "hot water", "boiling water", "fire", "skin burn", "scald"],
+  "Choking (Conscious & Unconscious)": ["choke", "choking", "food stuck", "throat blocked", "something stuck throat", "cant breathe"],
+  "Heatstroke & Dehydration": ["dehydration", "dehydrated", "thirst", "thirsty", "dry mouth", "no water", "weakness", "dizzy", "dizziness", "heat", "hot sun"],
+  "Fractures & Sprains": ["fracture", "broken bone", "bone injury", "sprain", "twisted ankle"],
+  "Seizures / Convulsions": ["seizure", "fits", "convulsion", "shaking", "epilepsy"],
+  "Heart Attack & Chest Pain": ["heart attack", "chest pain", "chest pressure", "cardiac pain"],
+  "Stroke (FAST Protocol)": ["stroke", "face droop", "slurred speech", "arm weakness", "fast"],
+  "Poisoning & Toxic Ingestion": ["poison", "poisoning", "swallowed chemical", "toxic", "overdose"],
+  "Snake & Insect Bites": ["snake bite", "insect bite", "venom", "bee sting", "bite"],
+  "Asthma Attack & Anaphylaxis": ["asthma", "allergic reaction", "anaphylaxis", "wheezing", "swollen throat", "cant breathe"],
+  "Diabetic Shock (Hypoglycemia)": ["diabetic shock", "low sugar", "low blood sugar", "hypoglycemia", "diabetes dizzy"]
+};
 const key = "sanjeevani-first-aid";
 function getFirstAid() {
   try {
@@ -29,6 +44,7 @@ function cacheFirstAid() {
 }
 export {
   FIRST_AID,
+  FIRST_AID_SEARCH_ALIASES,
   cacheFirstAid,
   getFirstAid
 };

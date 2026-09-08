@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+<<<<<<< HEAD
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -17,7 +18,11 @@ import {
   Stethoscope
 } from "lucide-react";
 
+=======
+import { BookOpen, CalendarHeart, ChevronRight, HeartHandshake, HeartPulse, Map, MapPin, Mic, Pill, Play, QrCode, ShieldAlert, Square, Stethoscope, FileText, Droplet } from "lucide-react";
+>>>>>>> f401b151c89a6f6a4b9be2675f99e040043ae4ac
 import { Navbar } from "./components/common/Navbar";
+import { BackButton } from "./components/common/BackButton";
 import { AccessibilitySettings } from "./components/common/AccessibilitySettings";
 import { LanguageSelector } from "./components/voice/LanguageSelector";
 import { VoiceWaveform } from "./components/voice/VoiceWaveform";
@@ -35,6 +40,12 @@ import { MedicineSafety } from "./components/medicines/MedicineSafety";
 import { MedicineReminderWatcher } from "./components/medicines/MedicineReminderWatcher";
 import { WomensHealth } from "./components/womensHealth/WomensHealth";
 import { CareCircle } from "./components/careCircle/CareCircle";
+import { LoginPage } from "./components/auth/LoginPage";
+import { AdminPage } from "./components/admin/AdminPage";
+import { EmergencyQrSettings } from "./components/emergencyQr/EmergencyQrSettings";
+import { EmergencyPublicPage } from "./components/emergencyQr/EmergencyPublicPage";
+import { useAuth } from "./auth/AuthContext";
+import { supabase } from "./services/supabase";
 import { api } from "./services/api";
 import { cacheFirstAid, getFirstAid } from "./services/offlineStorage";
 import { useGeolocation } from "./hooks/useGeolocation";
@@ -75,6 +86,7 @@ const VIEW_TO_PATH = {
 
 // Feature card definitions [label, description, Icon, path, colorClass]
 const features = [
+<<<<<<< HEAD
   ["AI Health Check",   "Describe symptoms and receive thoughtful guidance.",           Mic,          PATHS.voiceCheck,     "blue"],
   ["Nearby Facilities", "Find hospitals and emergency care near you.",                  Map,          PATHS.facilities,     "green"],
   ["Emergency SOS",     "Request urgent support with your location.",                  ShieldAlert,  PATHS.sos,            "red"],
@@ -84,7 +96,22 @@ const features = [
   ["Medicine Safety",   "Understand medicine uses, side effects and important safety.", Pill,         PATHS.medicineSafety, "amber"],
   ["Women's Health",    "Track your cycle, symptoms and women's health over time.",     CalendarHeart,PATHS.womensHealth,   "blue"],
   ["Offline First Aid", "Essential emergency guides, ready when offline.",              BookOpen,     PATHS.firstAid,       "amber"]
+=======
+  ["AI Health Check", "Describe symptoms and receive thoughtful guidance.", Mic, "Voice Triage", "blue"],
+  ["Nearby Facilities", "Find hospitals and emergency care near you.", Map, "Emergency Map", "green"],
+  ["Emergency SOS", "Request urgent support with your location.", ShieldAlert, "SOS Response", "red"],
+  ["Blood Bank", "Live blood inventory and availability.", Droplet, "Blood Bank", "red"],
+  ["Report Simplifier", "Understand complex medical jargon with AI.", FileText, "Medical Reports", "purple"],
+  ["Health Tracker", "Track your health and recovery progress over time.", HeartPulse, "Health Tracker", "green"],
+  ["Medicines", "Search medicines, understand their uses and manage your medicine reminders.", Pill, "Medicines", "amber"],
+  ["Women's Health", "Track your cycle, symptoms and women's health over time.", CalendarHeart, "Women's Health", "blue"],
+  ["Care Circle", "Keep your family's important health information together.", HeartHandshake, "Care Circle", "green"],
+  ["Emergency QR", "Share critical health information safely during an emergency.", QrCode, "Emergency QR", "red"],
+  ["Offline First Aid", "Essential emergency guides, ready when offline.", BookOpen, "First Aid", "amber"]
+>>>>>>> f401b151c89a6f6a4b9be2675f99e040043ae4ac
 ];
+const protectedViews = new Set(["Health Tracker", "Women's Health", "Care Circle", "Emergency QR"]);
+const validViews = new Set(["Dashboard", "Voice Triage", "Emergency Map", "SOS Response", "Blood Bank", "Medical Reports", "Health Tracker", "Medicines", "Women's Health", "Care Circle", "Emergency QR", "Sign In", "Admin", "First Aid", "System Status"]);
 
 // ---------------------------------------------------------------------------
 // Page components — defined inline to share App-level state via props
@@ -303,11 +330,25 @@ function FirstAidPage({ guide, setGuide }) {
 // ---------------------------------------------------------------------------
 
 export default function App() {
+<<<<<<< HEAD
   const navigate = useNavigate();
 
   // Application state (NOT routing state — routing is React Router's job)
   const [language, setLanguage]     = useState("English");
   const [triage, setTriage]         = useState(undefined);
+=======
+  const { user, loading: authLoading, isHospitalAdmin } = useAuth();
+  const [view, setView] = useState("Dashboard");
+  const [loginMode, setLoginMode] = useState(null);
+  const [pendingView, setPendingView] = useState(null);
+  const [loginSourceView, setLoginSourceView] = useState(null);
+  const [historyDepth, setHistoryDepth] = useState(0);
+  const [initialEmergencyToken] = useState(() => new URLSearchParams(window.location.search).get("emergency"));
+  const [scanToken, setScanToken] = useState(initialEmergencyToken);
+  const [helperGeo, setHelperGeo] = useState(null);
+  const [language, setLanguage] = useState("English");
+  const [triage, setTriage] = useState();
+>>>>>>> f401b151c89a6f6a4b9be2675f99e040043ae4ac
   const [facilities, setFacilities] = useState([]);
   const [selected, setSelected]     = useState(undefined);
   const [alert, setAlert]           = useState(undefined);
@@ -315,6 +356,7 @@ export default function App() {
   const [text, setText]             = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const [processing, setProcessing] = useState(false);
+<<<<<<< HEAD
   const [consultError, setConsultError] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -395,6 +437,53 @@ export default function App() {
     }
     setProcessing(true);
     const result = await voice.stop();
+=======
+  const [online, setOnline] = useState(navigator.onLine);
+  const viewRef = useRef(view), depthRef = useRef(historyDepth), userRef = useRef(user), adminRef = useRef(isHospitalAdmin);
+  const geo = useGeolocation(!initialEmergencyToken);
+  const activeGeo = helperGeo || geo;
+  const voice = useVoiceRecorder();
+  const tts = useVoiceSynthesis();
+  const onSocket = useCallback((nextAlert) => setAlert(nextAlert), []);
+  const socket = useSocket(onSocket);
+  useEffect(() => { userRef.current = user; adminRef.current = isHospitalAdmin; }, [user, isHospitalAdmin]);
+
+  const showView = useCallback((nextView, depth = depthRef.current) => {
+    const safeView = validViews.has(nextView) ? nextView : "Dashboard";
+    viewRef.current = safeView; depthRef.current = depth; setHistoryDepth(depth); setView(safeView);
+    if (safeView === "Dashboard") { setTriage(undefined); setText(""); }
+  }, []);
+
+  useEffect(() => {
+    if (initialEmergencyToken) window.history.replaceState({ sanjeevani: true, emergencyToken: initialEmergencyToken, depth: 0 }, "", window.location.href);
+    else window.history.replaceState({ sanjeevani: true, view: "Dashboard", depth: 0 }, "", window.location.href);
+    const onPopState = event => {
+      const state = event.state;
+      if (!state?.sanjeevani) return;
+      const depth = Number.isInteger(state.depth) ? state.depth : 0;
+      if (state.emergencyToken) { depthRef.current = depth; setHistoryDepth(depth); setScanToken(state.emergencyToken); return; }
+      setScanToken(null);
+      const requested = validViews.has(state.view) ? state.view : "Dashboard";
+      if (protectedViews.has(requested) && !userRef.current) { setPendingView(requested); setLoginSourceView(null); setLoginMode("user"); showView("Sign In", depth); return; }
+      if (requested === "Admin" && !adminRef.current) { setPendingView("Admin"); setLoginSourceView(null); setLoginMode("admin"); showView("Sign In", depth); return; }
+      showView(requested, depth);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [initialEmergencyToken, showView]);
+
+  useEffect(() => { cacheFirstAid(); if (!scanToken) api.facilities(activeGeo.latitude, activeGeo.longitude).then(setFacilities); }, [scanToken, activeGeo.latitude, activeGeo.longitude]);
+  useEffect(() => { const update = () => setOnline(navigator.onLine); window.addEventListener("online", update); window.addEventListener("offline", update); return () => { window.removeEventListener("online", update); window.removeEventListener("offline", update); }; }, []);
+  const doTriage = async (value) => { if (!value.trim()) return; setProcessing(true); setText(value); const result = await api.triage(value, language); setTriage(result); setProcessing(false); handleNavigate("Voice Triage"); tts.speak(result.voiceResponse, language); };
+  const record = async () => { 
+    if (!voice.recording) { 
+      const langMap = { "English": "en-IN", "Hindi": "hi-IN", "Bengali": "bn-IN", "Marathi": "mr-IN", "Gujarati": "gu-IN", "Telugu": "te-IN", "Tamil": "ta-IN" }; 
+      await voice.start(langMap[language] || "en-IN"); 
+      return; 
+    } 
+    setProcessing(true); 
+    const result = await voice.stop(); 
+>>>>>>> f401b151c89a6f6a4b9be2675f99e040043ae4ac
     if (result) {
       if (result instanceof Blob) {
         try {
@@ -408,6 +497,7 @@ export default function App() {
       setProcessing(false);
     }
   };
+<<<<<<< HEAD
 
   // SOS trigger
   const sos = async () => {
@@ -419,8 +509,39 @@ export default function App() {
     });
     setAlert(nextAlert);
     navigate(PATHS.sos);
-  };
+=======
+  const sos = async () => { const nextAlert = await api.sos({ latitude: activeGeo.latitude, longitude: activeGeo.longitude, urgency: triage?.alertLevel || "RED", conditionSummary: triage?.summary || "Emergency assistance requested" }); setAlert(nextAlert); handleNavigate("SOS Response"); };
+  const showVoice = () => { handleNavigate("Voice Triage"); setTimeout(() => document.getElementById("symptoms")?.focus(), 0); };
 
+  const handleNavigate = (requestedView, options = {}) => {
+    const requested = validViews.has(requestedView) ? requestedView : "Dashboard";
+    let destination = requested;
+    if (!options.authorized && protectedViews.has(requested) && !user) { setPendingView(requested); setLoginSourceView(viewRef.current); setLoginMode("user"); destination = "Sign In"; }
+    else if (!options.authorized && requested === "Admin" && !isHospitalAdmin) { setPendingView("Admin"); setLoginSourceView(viewRef.current); setLoginMode("admin"); destination = "Sign In"; }
+    else if (requested === "Sign In") { setPendingView(null); setLoginSourceView(viewRef.current); setLoginMode(null); }
+    if (destination === viewRef.current && !options.replace) return;
+    const depth = options.replace ? depthRef.current : depthRef.current + 1;
+    const state = { sanjeevani: true, view: destination, depth };
+    if (options.replace) window.history.replaceState(state, "", window.location.href); else window.history.pushState(state, "", window.location.href);
+    showView(destination, depth);
+    if (!options.fromPop) window.scrollTo({ top: 0, behavior: "auto" });
+>>>>>>> f401b151c89a6f6a4b9be2675f99e040043ae4ac
+  };
+  const goBack = () => { if (depthRef.current > 0) window.history.back(); else handleNavigate("Dashboard", { replace: true }); };
+  const authSuccess = mode => {
+    const destination = mode === "admin" ? "Admin" : pendingView && pendingView !== "Admin" ? pendingView : "Dashboard", returnToExisting = destination === loginSourceView && depthRef.current > 0;
+    setPendingView(null); setLoginSourceView(null); setLoginMode(null);
+    if (returnToExisting) window.history.back(); else handleNavigate(destination, { replace: true, authorized: true });
+  };
+  const signOut = async () => { await supabase?.auth.signOut(); userRef.current = null; adminRef.current = false; setPendingView(null); setLoginSourceView(null); handleNavigate("Dashboard", { replace: true }); };
+  const requirePatientAuth = () => { handleNavigate("Sign In"); setPendingView("Medicines"); setLoginSourceView(viewRef.current === "Sign In" ? "Medicines" : viewRef.current); setLoginMode("user"); };
+  const leavePublicScan = newView => { const depth = depthRef.current + 1; window.history.pushState({ sanjeevani: true, view: newView, depth }, "", window.location.pathname); setScanToken(null); showView(newView, depth); };
+  const emergencyHelp = position => { setHelperGeo(position); leavePublicScan("Emergency Map"); };
+
+  if (scanToken) return <div className="app-shell"><AccessibilitySettings /><EmergencyPublicPage token={scanToken} onHelp={emergencyHelp} onNavigate={leavePublicScan} /></div>;
+  if (authLoading) return <div className="app-shell"><main className="page-shell"><section className="system-card">Restoring your secure session…</section></main></div>;
+
+<<<<<<< HEAD
   // Focus symptom input on voice check page
   const showVoice = () => {
     navigate(PATHS.voiceCheck);
@@ -466,4 +587,44 @@ export default function App() {
       </main>
     </div>
   );
+=======
+  return <div className="app-shell">
+    {user && <MedicineReminderWatcher />}
+    <AccessibilitySettings />
+    <Navbar activeView={view} onNavigate={handleNavigate} online={online && socket} user={user} isHospitalAdmin={isHospitalAdmin} onSignOut={signOut} />
+    <main className="page-shell">
+      {view !== "Dashboard" && view !== "Sign In" && <BackButton onBack={goBack} />}
+      {(view === "Dashboard" || view === "Voice Triage") && <>
+        <section className="hero-section">
+          <div className="hero-badge">✦ AI-powered emergency guidance</div>
+          <h1>Healthcare guidance<br /><em>when you need it.</em></h1>
+          <p>Describe symptoms by voice or text. SANJEEVANI provides AI-assisted guidance, emergency support, and nearby care when every moment matters.</p>
+          <p className="hero-disclaimer">Guidance only — not a replacement for professional medical diagnosis.</p>
+          <div className="hero-actions"><button className="button primary" onClick={record} disabled={processing}><Mic size={18} />{voice.recording ? "Stop & analyze" : "Start Voice Check"}<ChevronRight size={16} /></button><button className="button secondary" onClick={showVoice}><Stethoscope size={18} />Describe symptoms</button></div>
+          <LanguageSelector value={language} onChange={setLanguage} />
+        </section>
+        <section className="voice-card" aria-label="Voice and text symptom input">
+          <div className="voice-card-copy"><span className="section-kicker">YOUR HEALTH CHECK</span><h2>Tell us what you’re feeling</h2><p>Speak naturally or type a few details below. We’ll guide you through the next best step.</p></div>
+          <div className="voice-card-action"><VoiceWaveform state={processing ? "processing" : voice.recording ? "recording" : "idle"} /><button className="mic-button" onClick={record} disabled={processing} aria-label={voice.recording ? "Stop voice recording" : "Start voice check"}>{voice.recording ? <Square size={19} /> : <Mic size={20} />}</button></div>
+          <div className="symptom-input"><label htmlFor="symptoms">Describe your symptoms</label><div><input id="symptoms" value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => event.key === "Enter" && doTriage(text)} placeholder="For example, I feel dizzy and have chest discomfort…" /><button className="button healthcare" onClick={() => doTriage(text)} disabled={processing}><Play size={15} />Analyze</button></div>{voice.error && <small className="error">{voice.error}</small>}</div>
+        </section>
+        {triage && <TriageCard result={triage} />}
+        <section className="feature-section"><div className="section-heading"><div><span className="section-kicker">CARE AT A GLANCE</span><h2>Support beyond the check-in</h2></div><span>{geo.error ? "Kolkata demo location" : "Location ready"} <MapPin size={15} /></span></div><div className="feature-grid">{features.map(([title, description, Icon, destination, color]) => <button className="feature-card" key={title} onClick={() => handleNavigate(destination)}><span className={`feature-icon ${color}`}><Icon size={21} /></span><ChevronRight className="feature-arrow" size={18} /><h3>{title}</h3><p>{description}</p><small><i className={color} /> Ready now</small></button>)}</div></section>
+      </>}
+      {view === "Emergency Map" && <section className="directory-view"><header className="page-heading"><span className="section-kicker">CARE DIRECTORY</span><h1>Nearby healthcare facilities</h1><p>Find hospitals, emergency services, and blood banks near your current location.</p></header><div className="facility-layout"><div className="facility-list">{facilities.map((facility) => <button key={facility.id} className="facility-card" onClick={() => setSelected(facility)}><div><b>{facility.name}</b><small>{facility.type} · {facility.distance} km away</small></div><span className="availability">{facility.emergency ? "Emergency available" : "Limited services"}</span><p>{facility.icuBeds} ICU beds available</p><span className="card-link">View details <ChevronRight size={15} /></span></button>)}</div><div><NeonMap facilities={facilities} position={activeGeo} onSelect={setSelected} selected={selected} /><HospitalDrawer facility={selected} onClose={() => setSelected(undefined)} /></div></div></section>}
+      {view === "SOS Response" && <section className="sos-view"><header className="page-heading centered"><span className="section-kicker emergency-text">EMERGENCY ASSISTANCE</span><h1>Help is one step away.</h1><p>Share your location with our simulated response system. In a real emergency, call <b>112</b> immediately.</p></header><div className="sos-layout"><section className="sos-intro"><span className="sos-icon"><ShieldAlert size={30} /></span><h2>Emergency SOS</h2><p>Request immediate assistance and share your current location with the response team.</p><SosButton geo={activeGeo} onConfirm={sos} /></section><EmergencyTracker alert={alert} /></div></section>}
+      {view === "Blood Bank" && <BloodStockCounter facilities={facilities} />}
+      {view === "Medical Reports" && <ReportSimplifier language={language} />}
+      {view === "Health Tracker" && user && <HealthTracker onNavigate={handleNavigate} />}
+      {view === "Medicines" && <MedicineSafety onNavigate={handleNavigate} user={user} onRequireAuth={requirePatientAuth} />}
+      {view === "Women's Health" && user && <WomensHealth onNavigate={handleNavigate} />}
+      {view === "Care Circle" && user && <CareCircle />}
+      {view === "Emergency QR" && user && <EmergencyQrSettings />}
+      {view === "Sign In" && <LoginPage initialMode={loginMode} onSuccess={authSuccess} onCancel={() => { setPendingView(null); setLoginSourceView(null); goBack(); }} />}
+      {view === "Admin" && isHospitalAdmin && <AdminPage user={user} />}
+      {view === "First Aid" && <section className="firstaid-view"><header className="page-heading"><span className="section-kicker">OFFLINE KNOWLEDGE CENTER</span><h1>Emergency first-aid guides</h1><p>Quick, step-by-step guidance for common emergency situations — available even offline.</p></header><div className="firstaid-grid"><FirstAidList guides={getFirstAid()} onSelect={setGuide} /><StepByStepCard guide={guide} /></div></section>}
+      {view === "System Status" && <section className="system-card"><span className="section-kicker">SYSTEM STATUS</span><h1>Everything is ready when you are.</h1><div className="system-grid"><p><i /> API fallback-safe</p><p><i /> GPS {geo.error ? "demo active" : "available"}</p><p><i /> Voice recorder {window.MediaRecorder ? "available" : "unavailable"}</p><p><i /> Socket {socket ? "connected" : "local demo"}</p></div><p className="disclaimer">Demo mode keeps SANJEEVANI useful without a database, API key, GPS, microphone, or socket connection.</p></section>}
+    </main>
+  </div>;
+>>>>>>> f401b151c89a6f6a4b9be2675f99e040043ae4ac
 }

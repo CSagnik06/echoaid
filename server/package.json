@@ -6,11 +6,19 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "build": "node --check src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node --test"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@google/genai": "^2.19.0",
     "@google/generative-ai": "^0.24.1",
+=======
+    "@google/genai": "^2.18.0",
+    "@google/generative-ai": "^0.21.0",
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
+>>>>>>> f401b151c89a6f6a4b9be2675f99e040043ae4ac
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

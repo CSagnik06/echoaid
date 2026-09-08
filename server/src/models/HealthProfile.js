@@ -138,12 +138,36 @@ const womenHealthSchema = new Schema({
   appointments: [womenAppointmentSchema]
 }, { _id: false });
 
+const emergencyProfileSchema = new Schema({
+  enabled: { type: Boolean, default: false },
+  publicToken: { type: String, index: true, sparse: true, unique: true, select: false },
+  displayName: { type: String, default: '', maxlength: 100 },
+  bloodGroup: { type: String, enum: ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'], default: '' },
+  allergies: [{ type: String, maxlength: 160 }],
+  importantMedicines: [{ type: String, maxlength: 160 }],
+  criticalConditions: [{ type: String, maxlength: 160 }],
+  emergencyContact: {
+    name: { type: String, default: '', maxlength: 100 },
+    relationship: { type: String, default: '', maxlength: 60 },
+    phone: { type: String, default: '', maxlength: 30 }
+  },
+  share: {
+    name: { type: Boolean, default: false },
+    bloodGroup: { type: Boolean, default: true },
+    allergies: { type: Boolean, default: true },
+    medicines: { type: Boolean, default: false },
+    conditions: { type: Boolean, default: false },
+    emergencyContact: { type: Boolean, default: true }
+  }
+}, { _id: false, timestamps: true });
+
 const healthProfileSchema = new Schema({
   ownerKey: { type: String, required: true, unique: true, index: true },
   plans: [planSchema],
   history: [historySchema],
   careCircle: [careCircleMemberSchema],
-  womensHealth: { type: womenHealthSchema, default: () => ({}) }
+  womensHealth: { type: womenHealthSchema, default: () => ({}) },
+  emergencyProfile: { type: emergencyProfileSchema, default: undefined }
 }, { timestamps: true });
 
 export const HealthProfile = model('HealthProfile', healthProfileSchema);
